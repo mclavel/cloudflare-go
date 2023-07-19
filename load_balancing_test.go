@@ -3,7 +3,7 @@ package cloudflare
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -18,7 +18,7 @@ func TestCreateLoadBalancerPool(t *testing.T) {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method, "Expected method 'POST', got %s", r.Method)
 		w.Header().Set("content-type", "application/json")
-		b, err := ioutil.ReadAll(r.Body)
+		b, err := io.ReadAll(r.Body)
 		defer r.Body.Close()
 		if assert.NoError(t, err) {
 			assert.JSONEq(t, `{
@@ -40,7 +40,7 @@ func TestCreateLoadBalancerPool(t *testing.T) {
               "origins": [
                 {
                   "name": "app-server-1",
-                  "address": "0.0.0.0",
+                  "address": "198.51.100.1",
                   "enabled": true,
                   "weight": 1,
                   "header": {
@@ -83,7 +83,7 @@ func TestCreateLoadBalancerPool(t *testing.T) {
               "origins": [
                 {
                   "name": "app-server-1",
-                  "address": "0.0.0.0",
+                  "address": "198.51.100.1",
                   "enabled": true,
                   "weight": 1,
                   "header": {
@@ -105,7 +105,7 @@ func TestCreateLoadBalancerPool(t *testing.T) {
 		return &f
 	}
 
-	mux.HandleFunc("/user/load_balancers/pools", handler)
+	mux.HandleFunc("/accounts/"+testAccountID+"/load_balancers/pools", handler)
 	createdOn, _ := time.Parse(time.RFC3339, "2014-01-01T05:20:00.12345Z")
 	modifiedOn, _ := time.Parse(time.RFC3339, "2014-02-01T05:20:00.12345Z")
 	want := LoadBalancerPool{
@@ -131,7 +131,7 @@ func TestCreateLoadBalancerPool(t *testing.T) {
 		Origins: []LoadBalancerOrigin{
 			{
 				Name:    "app-server-1",
-				Address: "0.0.0.0",
+				Address: "198.51.100.1",
 				Enabled: true,
 				Weight:  1,
 				Header: map[string][]string{
@@ -163,7 +163,7 @@ func TestCreateLoadBalancerPool(t *testing.T) {
 		Origins: []LoadBalancerOrigin{
 			{
 				Name:    "app-server-1",
-				Address: "0.0.0.0",
+				Address: "198.51.100.1",
 				Enabled: true,
 				Weight:  1,
 				Header: map[string][]string{
@@ -177,9 +177,19 @@ func TestCreateLoadBalancerPool(t *testing.T) {
 		},
 	}
 
-	actual, err := client.CreateLoadBalancerPool(context.Background(), request)
+	actual, err := client.CreateLoadBalancerPool(context.Background(), AccountIdentifier(testAccountID), CreateLoadBalancerPoolParams{LoadBalancerPool: request})
 	if assert.NoError(t, err) {
 		assert.Equal(t, want, actual)
+	}
+}
+
+func TestCreateLoadBalancerPool_ZoneIsNotSupported(t *testing.T) {
+	setup()
+	defer teardown()
+
+	_, err := client.CreateLoadBalancerPool(context.Background(), ZoneIdentifier(testZoneID), CreateLoadBalancerPoolParams{})
+	if assert.Error(t, err) {
+		assert.Equal(t, fmt.Sprintf(errInvalidResourceContainerAccess, ZoneRouteLevel), err.Error())
 	}
 }
 
@@ -209,7 +219,7 @@ func TestListLoadBalancerPools(t *testing.T) {
                     "origins": [
                       {
                         "name": "app-server-1",
-                        "address": "0.0.0.0",
+                        "address": "198.51.100.1",
                         "enabled": true,
                         "weight": 1
                       }
@@ -226,7 +236,7 @@ func TestListLoadBalancerPools(t *testing.T) {
         }`)
 	}
 
-	mux.HandleFunc("/user/load_balancers/pools", handler)
+	mux.HandleFunc("/accounts/"+testAccountID+"/load_balancers/pools", handler)
 	createdOn, _ := time.Parse(time.RFC3339, "2014-01-01T05:20:00.12345Z")
 	modifiedOn, _ := time.Parse(time.RFC3339, "2014-02-01T05:20:00.12345Z")
 	want := []LoadBalancerPool{
@@ -244,7 +254,7 @@ func TestListLoadBalancerPools(t *testing.T) {
 			Origins: []LoadBalancerOrigin{
 				{
 					Name:    "app-server-1",
-					Address: "0.0.0.0",
+					Address: "198.51.100.1",
 					Enabled: true,
 					Weight:  1,
 				},
@@ -253,13 +263,23 @@ func TestListLoadBalancerPools(t *testing.T) {
 		},
 	}
 
-	actual, err := client.ListLoadBalancerPools(context.Background())
+	actual, err := client.ListLoadBalancerPools(context.Background(), AccountIdentifier(testAccountID), ListLoadBalancerPoolParams{})
 	if assert.NoError(t, err) {
 		assert.Equal(t, want, actual)
 	}
 }
 
-func TestLoadBalancerPoolDetails(t *testing.T) {
+func TestListLoadBalancerPool_ZoneIsNotSupported(t *testing.T) {
+	setup()
+	defer teardown()
+
+	_, err := client.ListLoadBalancerPools(context.Background(), ZoneIdentifier(testZoneID), ListLoadBalancerPoolParams{})
+	if assert.Error(t, err) {
+		assert.Equal(t, fmt.Sprintf(errInvalidResourceContainerAccess, ZoneRouteLevel), err.Error())
+	}
+}
+
+func TestGetLoadBalancerPool(t *testing.T) {
 	setup()
 	defer teardown()
 
@@ -284,7 +304,7 @@ func TestLoadBalancerPoolDetails(t *testing.T) {
               "origins": [
                 {
                   "name": "app-server-1",
-                  "address": "0.0.0.0",
+                  "address": "198.51.100.1",
                   "enabled": true,
                   "weight": 1
                 }
@@ -294,7 +314,7 @@ func TestLoadBalancerPoolDetails(t *testing.T) {
         }`)
 	}
 
-	mux.HandleFunc("/user/load_balancers/pools/17b5962d775c646f3f9725cbc7a53df4", handler)
+	mux.HandleFunc("/accounts/"+testAccountID+"/load_balancers/pools/17b5962d775c646f3f9725cbc7a53df4", handler)
 	createdOn, _ := time.Parse(time.RFC3339, "2014-01-01T05:20:00.12345Z")
 	modifiedOn, _ := time.Parse(time.RFC3339, "2014-02-01T05:20:00.12345Z")
 	want := LoadBalancerPool{
@@ -311,7 +331,7 @@ func TestLoadBalancerPoolDetails(t *testing.T) {
 		Origins: []LoadBalancerOrigin{
 			{
 				Name:    "app-server-1",
-				Address: "0.0.0.0",
+				Address: "198.51.100.1",
 				Enabled: true,
 				Weight:  1,
 			},
@@ -319,13 +339,23 @@ func TestLoadBalancerPoolDetails(t *testing.T) {
 		NotificationEmail: "someone@example.com",
 	}
 
-	actual, err := client.LoadBalancerPoolDetails(context.Background(), "17b5962d775c646f3f9725cbc7a53df4")
+	actual, err := client.GetLoadBalancerPool(context.Background(), AccountIdentifier(testAccountID), "17b5962d775c646f3f9725cbc7a53df4")
 	if assert.NoError(t, err) {
 		assert.Equal(t, want, actual)
 	}
 
-	_, err = client.LoadBalancerPoolDetails(context.Background(), "bar")
+	_, err = client.GetLoadBalancerPool(context.Background(), AccountIdentifier(testAccountID), "bar")
 	assert.Error(t, err)
+}
+
+func TestGetLoadBalancerPool_ZoneIsNotSupported(t *testing.T) {
+	setup()
+	defer teardown()
+
+	_, err := client.GetLoadBalancerPool(context.Background(), ZoneIdentifier(testZoneID), "foo")
+	if assert.Error(t, err) {
+		assert.Equal(t, fmt.Sprintf(errInvalidResourceContainerAccess, ZoneRouteLevel), err.Error())
+	}
 }
 
 func TestDeleteLoadBalancerPool(t *testing.T) {
@@ -345,19 +375,29 @@ func TestDeleteLoadBalancerPool(t *testing.T) {
         }`)
 	}
 
-	mux.HandleFunc("/user/load_balancers/pools/17b5962d775c646f3f9725cbc7a53df4", handler)
-	assert.NoError(t, client.DeleteLoadBalancerPool(context.Background(), "17b5962d775c646f3f9725cbc7a53df4"))
-	assert.Error(t, client.DeleteLoadBalancerPool(context.Background(), "bar"))
+	mux.HandleFunc("/accounts/"+testAccountID+"/load_balancers/pools/17b5962d775c646f3f9725cbc7a53df4", handler)
+	assert.NoError(t, client.DeleteLoadBalancerPool(context.Background(), AccountIdentifier(testAccountID), "17b5962d775c646f3f9725cbc7a53df4"))
+	assert.Error(t, client.DeleteLoadBalancerPool(context.Background(), AccountIdentifier(testAccountID), "bar"))
 }
 
-func TestModifyLoadBalancerPool(t *testing.T) {
+func TestDeleteLoadBalancerPool_ZoneIsNotSupported(t *testing.T) {
+	setup()
+	defer teardown()
+
+	err := client.DeleteLoadBalancerPool(context.Background(), ZoneIdentifier(testZoneID), "foo")
+	if assert.Error(t, err) {
+		assert.Equal(t, fmt.Sprintf(errInvalidResourceContainerAccess, ZoneRouteLevel), err.Error())
+	}
+}
+
+func TestUpdateLoadBalancerPool(t *testing.T) {
 	setup()
 	defer teardown()
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPut, r.Method, "Expected method 'PUT', got %s", r.Method)
 		w.Header().Set("content-type", "application/json")
-		b, err := ioutil.ReadAll(r.Body)
+		b, err := io.ReadAll(r.Body)
 		defer r.Body.Close()
 		if assert.NoError(t, err) {
 			assert.JSONEq(t, `{
@@ -371,7 +411,7 @@ func TestModifyLoadBalancerPool(t *testing.T) {
               "origins": [
                 {
                   "name": "app-server-2",
-                  "address": "0.0.0.1",
+                  "address": "198.51.100.2",
                   "enabled": false,
                   "weight": 1,
                   "header": {
@@ -404,7 +444,7 @@ func TestModifyLoadBalancerPool(t *testing.T) {
               "origins": [
                 {
                   "name": "app-server-2",
-                  "address": "0.0.0.1",
+                  "address": "198.51.100.2",
                   "enabled": false,
                   "weight": 1,
                   "header": {
@@ -422,7 +462,7 @@ func TestModifyLoadBalancerPool(t *testing.T) {
         }`)
 	}
 
-	mux.HandleFunc("/user/load_balancers/pools/17b5962d775c646f3f9725cbc7a53df4", handler)
+	mux.HandleFunc("/accounts/"+testAccountID+"/load_balancers/pools/17b5962d775c646f3f9725cbc7a53df4", handler)
 	createdOn, _ := time.Parse(time.RFC3339, "2014-01-01T05:20:00.12345Z")
 	modifiedOn, _ := time.Parse(time.RFC3339, "2017-02-01T05:20:00.12345Z")
 	want := LoadBalancerPool{
@@ -438,7 +478,7 @@ func TestModifyLoadBalancerPool(t *testing.T) {
 		Origins: []LoadBalancerOrigin{
 			{
 				Name:    "app-server-2",
-				Address: "0.0.0.1",
+				Address: "198.51.100.2",
 				Enabled: false,
 				Weight:  1,
 				Header: map[string][]string{
@@ -462,7 +502,7 @@ func TestModifyLoadBalancerPool(t *testing.T) {
 		Origins: []LoadBalancerOrigin{
 			{
 				Name:    "app-server-2",
-				Address: "0.0.0.1",
+				Address: "198.51.100.2",
 				Enabled: false,
 				Weight:  1,
 				Header: map[string][]string{
@@ -476,9 +516,19 @@ func TestModifyLoadBalancerPool(t *testing.T) {
 		},
 	}
 
-	actual, err := client.ModifyLoadBalancerPool(context.Background(), request)
+	actual, err := client.UpdateLoadBalancerPool(context.Background(), AccountIdentifier(testAccountID), UpdateLoadBalancerPoolParams{LoadBalancer: request})
 	if assert.NoError(t, err) {
 		assert.Equal(t, want, actual)
+	}
+}
+
+func TestUpdateLoadBalancerPool_ZoneIsNotSupported(t *testing.T) {
+	setup()
+	defer teardown()
+
+	_, err := client.UpdateLoadBalancerPool(context.Background(), ZoneIdentifier(testZoneID), UpdateLoadBalancerPoolParams{})
+	if assert.Error(t, err) {
+		assert.Equal(t, fmt.Sprintf(errInvalidResourceContainerAccess, ZoneRouteLevel), err.Error())
 	}
 }
 
@@ -489,7 +539,7 @@ func TestCreateLoadBalancerMonitor(t *testing.T) {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method, "Expected method 'POST', got %s", r.Method)
 		w.Header().Set("content-type", "application/json")
-		b, err := ioutil.ReadAll(r.Body)
+		b, err := io.ReadAll(r.Body)
 		defer r.Body.Close()
 		if assert.NoError(t, err) {
 			assert.JSONEq(t, `{
@@ -547,7 +597,7 @@ func TestCreateLoadBalancerMonitor(t *testing.T) {
         }`)
 	}
 
-	mux.HandleFunc("/user/load_balancers/monitors", handler)
+	mux.HandleFunc("/accounts/"+testAccountID+"/load_balancers/monitors", handler)
 	createdOn, _ := time.Parse(time.RFC3339, "2014-01-01T05:20:00.12345Z")
 	modifiedOn, _ := time.Parse(time.RFC3339, "2014-02-01T05:20:00.12345Z")
 	want := LoadBalancerMonitor{
@@ -590,9 +640,19 @@ func TestCreateLoadBalancerMonitor(t *testing.T) {
 		AllowInsecure:   true,
 	}
 
-	actual, err := client.CreateLoadBalancerMonitor(context.Background(), request)
+	actual, err := client.CreateLoadBalancerMonitor(context.Background(), AccountIdentifier(testAccountID), CreateLoadBalancerMonitorParams{LoadBalancerMonitor: request})
 	if assert.NoError(t, err) {
 		assert.Equal(t, want, actual)
+	}
+}
+
+func TestCreateLoadBalancerMonitor_ZoneIsNotSupported(t *testing.T) {
+	setup()
+	defer teardown()
+
+	_, err := client.CreateLoadBalancerMonitor(context.Background(), ZoneIdentifier(testZoneID), CreateLoadBalancerMonitorParams{})
+	if assert.Error(t, err) {
+		assert.Equal(t, fmt.Sprintf(errInvalidResourceContainerAccess, ZoneRouteLevel), err.Error())
 	}
 }
 
@@ -640,7 +700,7 @@ func TestListLoadBalancerMonitors(t *testing.T) {
         }`)
 	}
 
-	mux.HandleFunc("/user/load_balancers/monitors", handler)
+	mux.HandleFunc("/accounts/"+testAccountID+"/load_balancers/monitors", handler)
 	createdOn, _ := time.Parse(time.RFC3339, "2014-01-01T05:20:00.12345Z")
 	modifiedOn, _ := time.Parse(time.RFC3339, "2014-02-01T05:20:00.12345Z")
 	want := []LoadBalancerMonitor{
@@ -664,13 +724,23 @@ func TestListLoadBalancerMonitors(t *testing.T) {
 		},
 	}
 
-	actual, err := client.ListLoadBalancerMonitors(context.Background())
+	actual, err := client.ListLoadBalancerMonitors(context.Background(), AccountIdentifier(testAccountID), ListLoadBalancerMonitorParams{})
 	if assert.NoError(t, err) {
 		assert.Equal(t, want, actual)
 	}
 }
 
-func TestLoadBalancerMonitorDetails(t *testing.T) {
+func TestListLoadBalancerMonitors_ZoneIsNotSupported(t *testing.T) {
+	setup()
+	defer teardown()
+
+	_, err := client.ListLoadBalancerMonitors(context.Background(), ZoneIdentifier(testZoneID), ListLoadBalancerMonitorParams{})
+	if assert.Error(t, err) {
+		assert.Equal(t, fmt.Sprintf(errInvalidResourceContainerAccess, ZoneRouteLevel), err.Error())
+	}
+}
+
+func TestGetLoadBalancerMonitor(t *testing.T) {
 	setup()
 	defer teardown()
 
@@ -709,7 +779,7 @@ func TestLoadBalancerMonitorDetails(t *testing.T) {
         }`)
 	}
 
-	mux.HandleFunc("/user/load_balancers/monitors/f1aba936b94213e5b8dca0c0dbf1f9cc", handler)
+	mux.HandleFunc("/accounts/"+testAccountID+"/load_balancers/monitors/f1aba936b94213e5b8dca0c0dbf1f9cc", handler)
 	createdOn, _ := time.Parse(time.RFC3339, "2014-01-01T05:20:00.12345Z")
 	modifiedOn, _ := time.Parse(time.RFC3339, "2014-02-01T05:20:00.12345Z")
 	want := LoadBalancerMonitor{
@@ -734,13 +804,23 @@ func TestLoadBalancerMonitorDetails(t *testing.T) {
 		AllowInsecure:   true,
 	}
 
-	actual, err := client.LoadBalancerMonitorDetails(context.Background(), "f1aba936b94213e5b8dca0c0dbf1f9cc")
+	actual, err := client.GetLoadBalancerMonitor(context.Background(), AccountIdentifier(testAccountID), "f1aba936b94213e5b8dca0c0dbf1f9cc")
 	if assert.NoError(t, err) {
 		assert.Equal(t, want, actual)
 	}
 
-	_, err = client.LoadBalancerMonitorDetails(context.Background(), "bar")
+	_, err = client.GetLoadBalancerMonitor(context.Background(), AccountIdentifier(testAccountID), "bar")
 	assert.Error(t, err)
+}
+
+func TestGetLoadBalancerMonitor_ZoneIsNotSupported(t *testing.T) {
+	setup()
+	defer teardown()
+
+	_, err := client.GetLoadBalancerMonitor(context.Background(), ZoneIdentifier(testZoneID), "foo")
+	if assert.Error(t, err) {
+		assert.Equal(t, fmt.Sprintf(errInvalidResourceContainerAccess, ZoneRouteLevel), err.Error())
+	}
 }
 
 func TestDeleteLoadBalancerMonitor(t *testing.T) {
@@ -760,19 +840,29 @@ func TestDeleteLoadBalancerMonitor(t *testing.T) {
         }`)
 	}
 
-	mux.HandleFunc("/user/load_balancers/monitors/f1aba936b94213e5b8dca0c0dbf1f9cc", handler)
-	assert.NoError(t, client.DeleteLoadBalancerMonitor(context.Background(), "f1aba936b94213e5b8dca0c0dbf1f9cc"))
-	assert.Error(t, client.DeleteLoadBalancerMonitor(context.Background(), "bar"))
+	mux.HandleFunc("/accounts/"+testAccountID+"/load_balancers/monitors/f1aba936b94213e5b8dca0c0dbf1f9cc", handler)
+	assert.NoError(t, client.DeleteLoadBalancerMonitor(context.Background(), AccountIdentifier(testAccountID), "f1aba936b94213e5b8dca0c0dbf1f9cc"))
+	assert.Error(t, client.DeleteLoadBalancerMonitor(context.Background(), AccountIdentifier(testAccountID), "bar"))
 }
 
-func TestModifyLoadBalancerMonitor(t *testing.T) {
+func TestDeleteLoadBalancerMonitor_ZoneIsNotSupported(t *testing.T) {
+	setup()
+	defer teardown()
+
+	err := client.DeleteLoadBalancerMonitor(context.Background(), ZoneIdentifier(testZoneID), "foo")
+	if assert.Error(t, err) {
+		assert.Equal(t, fmt.Sprintf(errInvalidResourceContainerAccess, ZoneRouteLevel), err.Error())
+	}
+}
+
+func TestUpdateLoadBalancerMonitor(t *testing.T) {
 	setup()
 	defer teardown()
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPut, r.Method, "Expected method 'PUT', got %s", r.Method)
 		w.Header().Set("content-type", "application/json")
-		b, err := ioutil.ReadAll(r.Body)
+		b, err := io.ReadAll(r.Body)
 		defer r.Body.Close()
 		if assert.NoError(t, err) {
 			assert.JSONEq(t, `{
@@ -831,7 +921,7 @@ func TestModifyLoadBalancerMonitor(t *testing.T) {
         }`)
 	}
 
-	mux.HandleFunc("/user/load_balancers/monitors/f1aba936b94213e5b8dca0c0dbf1f9cc", handler)
+	mux.HandleFunc("/accounts/"+testAccountID+"/load_balancers/monitors/f1aba936b94213e5b8dca0c0dbf1f9cc", handler)
 	createdOn, _ := time.Parse(time.RFC3339, "2014-01-01T05:20:00.12345Z")
 	modifiedOn, _ := time.Parse(time.RFC3339, "2017-02-01T05:20:00.12345Z")
 	want := LoadBalancerMonitor{
@@ -875,9 +965,19 @@ func TestModifyLoadBalancerMonitor(t *testing.T) {
 		AllowInsecure:   true,
 	}
 
-	actual, err := client.ModifyLoadBalancerMonitor(context.Background(), request)
+	actual, err := client.UpdateLoadBalancerMonitor(context.Background(), AccountIdentifier(testAccountID), UpdateLoadBalancerMonitorParams{LoadBalancerMonitor: request})
 	if assert.NoError(t, err) {
 		assert.Equal(t, want, actual)
+	}
+}
+
+func TestUpdateLoadBalancerMonitor_ZoneIsNotSupported(t *testing.T) {
+	setup()
+	defer teardown()
+
+	_, err := client.UpdateLoadBalancerMonitor(context.Background(), ZoneIdentifier(testZoneID), UpdateLoadBalancerMonitorParams{})
+	if assert.Error(t, err) {
+		assert.Equal(t, fmt.Sprintf(errInvalidResourceContainerAccess, ZoneRouteLevel), err.Error())
 	}
 }
 
@@ -888,7 +988,7 @@ func TestCreateLoadBalancer(t *testing.T) {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method, "Expected method 'POST', got %s", r.Method)
 		w.Header().Set("content-type", "application/json")
-		b, err := ioutil.ReadAll(r.Body)
+		b, err := io.ReadAll(r.Body)
 		defer r.Body.Close()
 		if assert.NoError(t, err) {
 			assert.JSONEq(t, `{
@@ -909,7 +1009,15 @@ func TestCreateLoadBalancer(t *testing.T) {
                 "ENAM": [
                   "00920f38ce07c2e2f4df50b1f61d4194"
                 ]
-			  },
+              },
+              "country_pools": {
+                "US": [
+                  "de90f38ced07c2e2f4df50b1f61d4194"
+                ],
+                "GB": [
+                  "abd90f38ced07c2e2f4df50b1f61d4194"
+                ]
+              },
               "pop_pools": {
                 "LAX": [
                   "de90f38ced07c2e2f4df50b1f61d4194",
@@ -923,6 +1031,20 @@ func TestCreateLoadBalancer(t *testing.T) {
                   "00920f38ce07c2e2f4df50b1f61d4194"
                 ]
 			  },
+			  "random_steering": {
+			    "default_weight": 0.2,
+			    "pool_weights": {
+			        "9290f38c5d07c2e2f4df57b1f61d4196": 0.6,
+			        "de90f38ced07c2e2f4df50b1f61d4194": 0.4
+			    }
+			  },
+			  "adaptive_routing": {
+				"failover_across_pools": true
+			  },
+			  "location_strategy": {
+				"prefer_ecs": "always",
+				"mode": "resolver_ip"
+			  },
 			  "rules": [
 				  {
 					  "name": "example rule",
@@ -932,6 +1054,13 @@ func TestCreateLoadBalancer(t *testing.T) {
 					  "overrides": {
 						  "region_pools": {
 							  "SAF": ["de90f38ced07c2e2f4df50b1f61d4194"]
+						  },
+						  "adaptive_routing": {
+							"failover_across_pools": false
+						  },
+						  "location_strategy": {
+							"prefer_ecs": "never",
+							"mode": "pop"
 						  }
 					  }
 				  }
@@ -942,10 +1071,12 @@ func TestCreateLoadBalancer(t *testing.T) {
               "session_affinity_attributes": {
                 "samesite": "Strict",
                 "secure": "Always",
-                "drain_duration": 60
+                "drain_duration": 60,
+                "zero_downtime_failover": "sticky"
               }
             }`, string(b))
 		}
+
 		fmt.Fprint(w, `{
             "success": true,
             "errors": [],
@@ -972,6 +1103,14 @@ func TestCreateLoadBalancer(t *testing.T) {
                     "00920f38ce07c2e2f4df50b1f61d4194"
                   ]
                 },
+                "country_pools": {
+                  "US": [
+                    "de90f38ced07c2e2f4df50b1f61d4194"
+                  ],
+                  "GB": [
+                    "abd90f38ced07c2e2f4df50b1f61d4194"
+                  ]
+                },
                 "pop_pools": {
                   "LAX": [
                     "de90f38ced07c2e2f4df50b1f61d4194",
@@ -985,6 +1124,20 @@ func TestCreateLoadBalancer(t *testing.T) {
                     "00920f38ce07c2e2f4df50b1f61d4194"
                   ]
 				},
+				"random_steering": {
+				   "default_weight": 0.2,
+				    "pool_weights": {
+				        "9290f38c5d07c2e2f4df57b1f61d4196": 0.6,
+				        "de90f38ced07c2e2f4df50b1f61d4194": 0.4
+				    }
+				},
+				"adaptive_routing": {
+					"failover_across_pools": true
+				},
+				"location_strategy": {
+					"prefer_ecs": "always",
+					"mode": "resolver_ip"
+				},
 				"rules": [
 				  {
 					  "name": "example rule",
@@ -992,6 +1145,13 @@ func TestCreateLoadBalancer(t *testing.T) {
 					  "overrides": {
 						  "region_pools": {
 							  "SAF": ["de90f38ced07c2e2f4df50b1f61d4194"]
+						  },
+						  "adaptive_routing": {
+							"failover_across_pools": false
+						  },
+						  "location_strategy": {
+							"prefer_ecs": "never",
+							"mode": "pop"
 						  }
 					  }
 				  }
@@ -1002,13 +1162,14 @@ func TestCreateLoadBalancer(t *testing.T) {
                 "session_affinity_attributes": {
                     "samesite": "Strict",
                     "secure": "Always",
-                    "drain_duration": 60
+                    "drain_duration": 60,
+	                "zero_downtime_failover": "sticky"
                 }
             }
         }`)
 	}
 
-	mux.HandleFunc("/zones/199d98642c564d2e855e9661899b7252/load_balancers", handler)
+	mux.HandleFunc("/zones/"+testZoneID+"/load_balancers", handler)
 	createdOn, _ := time.Parse(time.RFC3339, "2014-01-01T05:20:00.12345Z")
 	modifiedOn, _ := time.Parse(time.RFC3339, "2014-02-01T05:20:00.12345Z")
 	want := LoadBalancer{
@@ -1033,6 +1194,14 @@ func TestCreateLoadBalancer(t *testing.T) {
 				"00920f38ce07c2e2f4df50b1f61d4194",
 			},
 		},
+		CountryPools: map[string][]string{
+			"US": {
+				"de90f38ced07c2e2f4df50b1f61d4194",
+			},
+			"GB": {
+				"abd90f38ced07c2e2f4df50b1f61d4194",
+			},
+		},
 		PopPools: map[string][]string{
 			"LAX": {
 				"de90f38ced07c2e2f4df50b1f61d4194",
@@ -1046,6 +1215,20 @@ func TestCreateLoadBalancer(t *testing.T) {
 				"00920f38ce07c2e2f4df50b1f61d4194",
 			},
 		},
+		RandomSteering: &RandomSteering{
+			DefaultWeight: 0.2,
+			PoolWeights: map[string]float64{
+				"9290f38c5d07c2e2f4df57b1f61d4196": 0.6,
+				"de90f38ced07c2e2f4df50b1f61d4194": 0.4,
+			},
+		},
+		AdaptiveRouting: &AdaptiveRouting{
+			FailoverAcrossPools: BoolPtr(true),
+		},
+		LocationStrategy: &LocationStrategy{
+			PreferECS: "always",
+			Mode:      "resolver_ip",
+		},
 		Rules: []*LoadBalancerRule{
 			{
 				Name:      "example rule",
@@ -1054,6 +1237,13 @@ func TestCreateLoadBalancer(t *testing.T) {
 					RegionPools: map[string][]string{
 						"SAF": {"de90f38ced07c2e2f4df50b1f61d4194"},
 					},
+					AdaptiveRouting: &AdaptiveRouting{
+						FailoverAcrossPools: BoolPtr(false),
+					},
+					LocationStrategy: &LocationStrategy{
+						PreferECS: "never",
+						Mode:      "pop",
+					},
 				},
 			},
 		},
@@ -1061,9 +1251,10 @@ func TestCreateLoadBalancer(t *testing.T) {
 		Persistence:    "cookie",
 		PersistenceTTL: 5000,
 		SessionAffinityAttributes: &SessionAffinityAttributes{
-			SameSite:      "Strict",
-			Secure:        "Always",
-			DrainDuration: 60,
+			SameSite:             "Strict",
+			Secure:               "Always",
+			DrainDuration:        60,
+			ZeroDowntimeFailover: "sticky",
 		},
 	}
 	request := LoadBalancer{
@@ -1085,6 +1276,14 @@ func TestCreateLoadBalancer(t *testing.T) {
 				"00920f38ce07c2e2f4df50b1f61d4194",
 			},
 		},
+		CountryPools: map[string][]string{
+			"US": {
+				"de90f38ced07c2e2f4df50b1f61d4194",
+			},
+			"GB": {
+				"abd90f38ced07c2e2f4df50b1f61d4194",
+			},
+		},
 		PopPools: map[string][]string{
 			"LAX": {
 				"de90f38ced07c2e2f4df50b1f61d4194",
@@ -1098,6 +1297,20 @@ func TestCreateLoadBalancer(t *testing.T) {
 				"00920f38ce07c2e2f4df50b1f61d4194",
 			},
 		},
+		RandomSteering: &RandomSteering{
+			DefaultWeight: 0.2,
+			PoolWeights: map[string]float64{
+				"9290f38c5d07c2e2f4df57b1f61d4196": 0.6,
+				"de90f38ced07c2e2f4df50b1f61d4194": 0.4,
+			},
+		},
+		AdaptiveRouting: &AdaptiveRouting{
+			FailoverAcrossPools: BoolPtr(true),
+		},
+		LocationStrategy: &LocationStrategy{
+			PreferECS: "always",
+			Mode:      "resolver_ip",
+		},
 		Rules: []*LoadBalancerRule{
 			{
 				Name:      "example rule",
@@ -1106,6 +1319,13 @@ func TestCreateLoadBalancer(t *testing.T) {
 					RegionPools: map[string][]string{
 						"SAF": {"de90f38ced07c2e2f4df50b1f61d4194"},
 					},
+					AdaptiveRouting: &AdaptiveRouting{
+						FailoverAcrossPools: BoolPtr(false),
+					},
+					LocationStrategy: &LocationStrategy{
+						PreferECS: "never",
+						Mode:      "pop",
+					},
 				},
 			},
 		},
@@ -1113,15 +1333,26 @@ func TestCreateLoadBalancer(t *testing.T) {
 		Persistence:    "cookie",
 		PersistenceTTL: 5000,
 		SessionAffinityAttributes: &SessionAffinityAttributes{
-			SameSite:      "Strict",
-			Secure:        "Always",
-			DrainDuration: 60,
+			SameSite:             "Strict",
+			Secure:               "Always",
+			DrainDuration:        60,
+			ZeroDowntimeFailover: "sticky",
 		},
 	}
 
-	actual, err := client.CreateLoadBalancer(context.Background(), "199d98642c564d2e855e9661899b7252", request)
+	actual, err := client.CreateLoadBalancer(context.Background(), ZoneIdentifier(testZoneID), CreateLoadBalancerParams{LoadBalancer: request})
 	if assert.NoError(t, err) {
 		assert.Equal(t, want, actual)
+	}
+}
+
+func TestCreateLoadBalancer_AccountIsNotSupported(t *testing.T) {
+	setup()
+	defer teardown()
+
+	_, err := client.CreateLoadBalancer(context.Background(), AccountIdentifier(testAccountID), CreateLoadBalancerParams{})
+	if assert.Error(t, err) {
+		assert.Equal(t, fmt.Sprintf(errInvalidResourceContainerAccess, AccountRouteLevel), err.Error())
 	}
 }
 
@@ -1159,6 +1390,14 @@ func TestListLoadBalancers(t *testing.T) {
                         "00920f38ce07c2e2f4df50b1f61d4194"
                       ]
                     },
+                    "country_pools": {
+                      "US": [
+                        "de90f38ced07c2e2f4df50b1f61d4194"
+                      ],
+                      "GB": [
+                        "abd90f38ced07c2e2f4df50b1f61d4194"
+                      ]
+                    },
                     "pop_pools": {
                       "LAX": [
                         "de90f38ced07c2e2f4df50b1f61d4194",
@@ -1172,6 +1411,20 @@ func TestListLoadBalancers(t *testing.T) {
                         "00920f38ce07c2e2f4df50b1f61d4194"
                       ]
                     },
+                    "random_steering": {
+                        "default_weight": 0.2,
+                        "pool_weights": {
+                            "9290f38c5d07c2e2f4df57b1f61d4196": 0.6,
+                            "de90f38ced07c2e2f4df50b1f61d4194": 0.4
+                        }
+                    },
+					"adaptive_routing": {
+						"failover_across_pools": true
+					},
+					"location_strategy": {
+						"prefer_ecs": "always",
+						"mode": "resolver_ip"
+					},
                     "proxied": true
                 }
             ],
@@ -1184,7 +1437,7 @@ func TestListLoadBalancers(t *testing.T) {
         }`)
 	}
 
-	mux.HandleFunc("/zones/199d98642c564d2e855e9661899b7252/load_balancers", handler)
+	mux.HandleFunc("/zones/"+testZoneID+"/load_balancers", handler)
 	createdOn, _ := time.Parse(time.RFC3339, "2014-01-01T05:20:00.12345Z")
 	modifiedOn, _ := time.Parse(time.RFC3339, "2014-02-01T05:20:00.12345Z")
 	want := []LoadBalancer{
@@ -1210,6 +1463,14 @@ func TestListLoadBalancers(t *testing.T) {
 					"00920f38ce07c2e2f4df50b1f61d4194",
 				},
 			},
+			CountryPools: map[string][]string{
+				"US": {
+					"de90f38ced07c2e2f4df50b1f61d4194",
+				},
+				"GB": {
+					"abd90f38ced07c2e2f4df50b1f61d4194",
+				},
+			},
 			PopPools: map[string][]string{
 				"LAX": {
 					"de90f38ced07c2e2f4df50b1f61d4194",
@@ -1223,17 +1484,41 @@ func TestListLoadBalancers(t *testing.T) {
 					"00920f38ce07c2e2f4df50b1f61d4194",
 				},
 			},
+			RandomSteering: &RandomSteering{
+				DefaultWeight: 0.2,
+				PoolWeights: map[string]float64{
+					"9290f38c5d07c2e2f4df57b1f61d4196": 0.6,
+					"de90f38ced07c2e2f4df50b1f61d4194": 0.4,
+				},
+			},
+			AdaptiveRouting: &AdaptiveRouting{
+				FailoverAcrossPools: BoolPtr(true),
+			},
+			LocationStrategy: &LocationStrategy{
+				PreferECS: "always",
+				Mode:      "resolver_ip",
+			},
 			Proxied: true,
 		},
 	}
 
-	actual, err := client.ListLoadBalancers(context.Background(), "199d98642c564d2e855e9661899b7252")
+	actual, err := client.ListLoadBalancers(context.Background(), ZoneIdentifier(testZoneID), ListLoadBalancerParams{})
 	if assert.NoError(t, err) {
 		assert.Equal(t, want, actual)
 	}
 }
 
-func TestLoadBalancerDetails(t *testing.T) {
+func TestListLoadBalancer_AccountIsNotSupported(t *testing.T) {
+	setup()
+	defer teardown()
+
+	_, err := client.ListLoadBalancers(context.Background(), AccountIdentifier(testAccountID), ListLoadBalancerParams{})
+	if assert.Error(t, err) {
+		assert.Equal(t, fmt.Sprintf(errInvalidResourceContainerAccess, AccountRouteLevel), err.Error())
+	}
+}
+
+func TestGetLoadBalancer(t *testing.T) {
 	setup()
 	defer teardown()
 
@@ -1266,6 +1551,14 @@ func TestLoadBalancerDetails(t *testing.T) {
                     "00920f38ce07c2e2f4df50b1f61d4194"
                   ]
                 },
+                "country_pools": {
+                  "US": [
+                    "de90f38ced07c2e2f4df50b1f61d4194"
+                  ],
+                  "GB": [
+                    "abd90f38ced07c2e2f4df50b1f61d4194"
+                  ]
+                },
                 "pop_pools": {
                   "LAX": [
                     "de90f38ced07c2e2f4df50b1f61d4194",
@@ -1279,12 +1572,26 @@ func TestLoadBalancerDetails(t *testing.T) {
                     "00920f38ce07c2e2f4df50b1f61d4194"
                   ]
                 },
+                "random_steering": {
+                    "default_weight": 0.2,
+                    "pool_weights": {
+                        "9290f38c5d07c2e2f4df57b1f61d4196": 0.6,
+                        "de90f38ced07c2e2f4df50b1f61d4194": 0.4
+                    }
+                },
+				"adaptive_routing": {
+					"failover_across_pools": true
+				},
+				"location_strategy": {
+					"prefer_ecs": "always",
+					"mode": "resolver_ip"
+				},
                 "proxied": true
             }
         }`)
 	}
 
-	mux.HandleFunc("/zones/199d98642c564d2e855e9661899b7252/load_balancers/699d98642c564d2e855e9661899b7252", handler)
+	mux.HandleFunc("/zones/"+testZoneID+"/load_balancers/699d98642c564d2e855e9661899b7252", handler)
 	createdOn, _ := time.Parse(time.RFC3339, "2014-01-01T05:20:00.12345Z")
 	modifiedOn, _ := time.Parse(time.RFC3339, "2014-02-01T05:20:00.12345Z")
 	want := LoadBalancer{
@@ -1309,6 +1616,14 @@ func TestLoadBalancerDetails(t *testing.T) {
 				"00920f38ce07c2e2f4df50b1f61d4194",
 			},
 		},
+		CountryPools: map[string][]string{
+			"US": {
+				"de90f38ced07c2e2f4df50b1f61d4194",
+			},
+			"GB": {
+				"abd90f38ced07c2e2f4df50b1f61d4194",
+			},
+		},
 		PopPools: map[string][]string{
 			"LAX": {
 				"de90f38ced07c2e2f4df50b1f61d4194",
@@ -1322,16 +1637,40 @@ func TestLoadBalancerDetails(t *testing.T) {
 				"00920f38ce07c2e2f4df50b1f61d4194",
 			},
 		},
+		RandomSteering: &RandomSteering{
+			DefaultWeight: 0.2,
+			PoolWeights: map[string]float64{
+				"9290f38c5d07c2e2f4df57b1f61d4196": 0.6,
+				"de90f38ced07c2e2f4df50b1f61d4194": 0.4,
+			},
+		},
+		AdaptiveRouting: &AdaptiveRouting{
+			FailoverAcrossPools: BoolPtr(true),
+		},
+		LocationStrategy: &LocationStrategy{
+			PreferECS: "always",
+			Mode:      "resolver_ip",
+		},
 		Proxied: true,
 	}
 
-	actual, err := client.LoadBalancerDetails(context.Background(), "199d98642c564d2e855e9661899b7252", "699d98642c564d2e855e9661899b7252")
+	actual, err := client.GetLoadBalancer(context.Background(), ZoneIdentifier(testZoneID), "699d98642c564d2e855e9661899b7252")
 	if assert.NoError(t, err) {
 		assert.Equal(t, want, actual)
 	}
 
-	_, err = client.LoadBalancerDetails(context.Background(), "199d98642c564d2e855e9661899b7252", "bar")
+	_, err = client.GetLoadBalancer(context.Background(), ZoneIdentifier(testZoneID), "bar")
 	assert.Error(t, err)
+}
+
+func TestGetLoadBalancer_AccountIsNotSupported(t *testing.T) {
+	setup()
+	defer teardown()
+
+	_, err := client.GetLoadBalancer(context.Background(), AccountIdentifier(testAccountID), "foo")
+	if assert.Error(t, err) {
+		assert.Equal(t, fmt.Sprintf(errInvalidResourceContainerAccess, AccountRouteLevel), err.Error())
+	}
 }
 
 func TestDeleteLoadBalancer(t *testing.T) {
@@ -1351,19 +1690,29 @@ func TestDeleteLoadBalancer(t *testing.T) {
         }`)
 	}
 
-	mux.HandleFunc("/zones/199d98642c564d2e855e9661899b7252/load_balancers/699d98642c564d2e855e9661899b7252", handler)
-	assert.NoError(t, client.DeleteLoadBalancer(context.Background(), "199d98642c564d2e855e9661899b7252", "699d98642c564d2e855e9661899b7252"))
-	assert.Error(t, client.DeleteLoadBalancer(context.Background(), "199d98642c564d2e855e9661899b7252", "bar"))
+	mux.HandleFunc("/zones/"+testZoneID+"/load_balancers/699d98642c564d2e855e9661899b7252", handler)
+	assert.NoError(t, client.DeleteLoadBalancer(context.Background(), ZoneIdentifier(testZoneID), "699d98642c564d2e855e9661899b7252"))
+	assert.Error(t, client.DeleteLoadBalancer(context.Background(), ZoneIdentifier(testZoneID), "bar"))
 }
 
-func TestModifyLoadBalancer(t *testing.T) {
+func TestDeleteLoadBalancer_AccountIsNotSupported(t *testing.T) {
+	setup()
+	defer teardown()
+
+	err := client.DeleteLoadBalancer(context.Background(), AccountIdentifier(testAccountID), "foo")
+	if assert.Error(t, err) {
+		assert.Equal(t, fmt.Sprintf(errInvalidResourceContainerAccess, AccountRouteLevel), err.Error())
+	}
+}
+
+func TestUpdateLoadBalancer(t *testing.T) {
 	setup()
 	defer teardown()
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPut, r.Method, "Expected method 'PUT', got %s", r.Method)
 		w.Header().Set("content-type", "application/json")
-		b, err := ioutil.ReadAll(r.Body)
+		b, err := io.ReadAll(r.Body)
 		defer r.Body.Close()
 		if assert.NoError(t, err) {
 			assert.JSONEq(t, `{
@@ -1383,6 +1732,14 @@ func TestModifyLoadBalancer(t *testing.T) {
                     "00920f38ce07c2e2f4df50b1f61d4194"
                   ]
                 },
+                "country_pools": {
+                  "US": [
+                    "de90f38ced07c2e2f4df50b1f61d4194"
+                  ],
+                  "GB": [
+                    "f9138c5d07c2e2f4df57b1f61d4196"
+                  ]
+                },
                 "pop_pools": {
                   "LAX": [
                     "9290f38c5d07c2e2f4df57b1f61d4196"
@@ -1394,11 +1751,25 @@ func TestModifyLoadBalancer(t *testing.T) {
                     "00920f38ce07c2e2f4df50b1f61d4194"
                   ]
                 },
+                "random_steering": {
+                    "default_weight": 0.5,
+                    "pool_weights": {
+                        "9290f38c5d07c2e2f4df57b1f61d4196": 0.2
+                    }
+                },
+				"adaptive_routing": {
+					"failover_across_pools": false
+				},
+				"location_strategy": {
+					"prefer_ecs": "never",
+					"mode": "pop"
+				},
                 "proxied": true,
                 "session_affinity": "none",
                 "session_affinity_attributes": {
                   "samesite": "Strict",
-                  "secure": "Always"
+                  "secure": "Always",
+				  "zero_downtime_failover": "sticky"
                 }
 			}`, string(b))
 		}
@@ -1425,6 +1796,14 @@ func TestModifyLoadBalancer(t *testing.T) {
                     "00920f38ce07c2e2f4df50b1f61d4194"
                   ]
                 },
+                "country_pools": {
+                  "US": [
+                    "de90f38ced07c2e2f4df50b1f61d4194"
+                  ],
+                  "GB": [
+                    "f9138c5d07c2e2f4df57b1f61d4196"
+                  ]
+                },
                 "pop_pools": {
                   "LAX": [
                     "9290f38c5d07c2e2f4df57b1f61d4196"
@@ -1436,17 +1815,31 @@ func TestModifyLoadBalancer(t *testing.T) {
                     "00920f38ce07c2e2f4df50b1f61d4194"
                   ]
                 },
+                "random_steering": {
+                    "default_weight": 0.5,
+                    "pool_weights": {
+                        "9290f38c5d07c2e2f4df57b1f61d4196": 0.2
+                    }
+                },
+				"adaptive_routing": {
+					"failover_across_pools": false
+				},
+				"location_strategy": {
+					"prefer_ecs": "never",
+					"mode": "pop"
+				},
                 "proxied": true,
                 "session_affinity": "none",
                 "session_affinity_attributes": {
                   "samesite": "Strict",
-                  "secure": "Always"
+                  "secure": "Always",
+	              "zero_downtime_failover": "sticky"
                 }
             }
         }`)
 	}
 
-	mux.HandleFunc("/zones/199d98642c564d2e855e9661899b7252/load_balancers/699d98642c564d2e855e9661899b7252", handler)
+	mux.HandleFunc("/zones/"+testZoneID+"/load_balancers/699d98642c564d2e855e9661899b7252", handler)
 	createdOn, _ := time.Parse(time.RFC3339, "2014-01-01T05:20:00.12345Z")
 	modifiedOn, _ := time.Parse(time.RFC3339, "2017-02-01T05:20:00.12345Z")
 	want := LoadBalancer{
@@ -1468,6 +1861,14 @@ func TestModifyLoadBalancer(t *testing.T) {
 				"00920f38ce07c2e2f4df50b1f61d4194",
 			},
 		},
+		CountryPools: map[string][]string{
+			"US": {
+				"de90f38ced07c2e2f4df50b1f61d4194",
+			},
+			"GB": {
+				"f9138c5d07c2e2f4df57b1f61d4196",
+			},
+		},
 		PopPools: map[string][]string{
 			"LAX": {
 				"9290f38c5d07c2e2f4df57b1f61d4196",
@@ -1479,11 +1880,25 @@ func TestModifyLoadBalancer(t *testing.T) {
 				"00920f38ce07c2e2f4df50b1f61d4194",
 			},
 		},
+		RandomSteering: &RandomSteering{
+			DefaultWeight: 0.5,
+			PoolWeights: map[string]float64{
+				"9290f38c5d07c2e2f4df57b1f61d4196": 0.2,
+			},
+		},
+		AdaptiveRouting: &AdaptiveRouting{
+			FailoverAcrossPools: BoolPtr(false),
+		},
+		LocationStrategy: &LocationStrategy{
+			PreferECS: "never",
+			Mode:      "pop",
+		},
 		Proxied:     true,
 		Persistence: "none",
 		SessionAffinityAttributes: &SessionAffinityAttributes{
-			SameSite: "Strict",
-			Secure:   "Always",
+			SameSite:             "Strict",
+			Secure:               "Always",
+			ZeroDowntimeFailover: "sticky",
 		},
 	}
 	request := LoadBalancer{
@@ -1503,6 +1918,14 @@ func TestModifyLoadBalancer(t *testing.T) {
 				"00920f38ce07c2e2f4df50b1f61d4194",
 			},
 		},
+		CountryPools: map[string][]string{
+			"US": {
+				"de90f38ced07c2e2f4df50b1f61d4194",
+			},
+			"GB": {
+				"f9138c5d07c2e2f4df57b1f61d4196",
+			},
+		},
 		PopPools: map[string][]string{
 			"LAX": {
 				"9290f38c5d07c2e2f4df57b1f61d4196",
@@ -1514,17 +1937,41 @@ func TestModifyLoadBalancer(t *testing.T) {
 				"00920f38ce07c2e2f4df50b1f61d4194",
 			},
 		},
+		RandomSteering: &RandomSteering{
+			DefaultWeight: 0.5,
+			PoolWeights: map[string]float64{
+				"9290f38c5d07c2e2f4df57b1f61d4196": 0.2,
+			},
+		},
+		AdaptiveRouting: &AdaptiveRouting{
+			FailoverAcrossPools: BoolPtr(false),
+		},
+		LocationStrategy: &LocationStrategy{
+			PreferECS: "never",
+			Mode:      "pop",
+		},
 		Proxied:     true,
 		Persistence: "none",
 		SessionAffinityAttributes: &SessionAffinityAttributes{
-			SameSite: "Strict",
-			Secure:   "Always",
+			SameSite:             "Strict",
+			Secure:               "Always",
+			ZeroDowntimeFailover: "sticky",
 		},
 	}
 
-	actual, err := client.ModifyLoadBalancer(context.Background(), "199d98642c564d2e855e9661899b7252", request)
+	actual, err := client.UpdateLoadBalancer(context.Background(), ZoneIdentifier(testZoneID), UpdateLoadBalancerParams{LoadBalancer: request})
 	if assert.NoError(t, err) {
 		assert.Equal(t, want, actual)
+	}
+}
+
+func TestUpdateLoadBalancer_AccountIsNotSupported(t *testing.T) {
+	setup()
+	defer teardown()
+
+	_, err := client.UpdateLoadBalancer(context.Background(), AccountIdentifier(testAccountID), UpdateLoadBalancerParams{LoadBalancer: LoadBalancer{}})
+	if assert.Error(t, err) {
+		assert.Equal(t, fmt.Sprintf(errInvalidResourceContainerAccess, AccountRouteLevel), err.Error())
 	}
 }
 
@@ -1560,7 +2007,7 @@ func TestLoadBalancerPoolHealthDetails(t *testing.T) {
         }`)
 	}
 
-	mux.HandleFunc("/user/load_balancers/pools/699d98642c564d2e855e9661899b7252/health", handler)
+	mux.HandleFunc("/accounts/"+testAccountID+"/load_balancers/pools/699d98642c564d2e855e9661899b7252/health", handler)
 	want := LoadBalancerPoolHealth{
 		ID: "699d98642c564d2e855e9661899b7252",
 		PopHealth: map[string]LoadBalancerPoolPopHealth{
@@ -1580,8 +2027,18 @@ func TestLoadBalancerPoolHealthDetails(t *testing.T) {
 		},
 	}
 
-	actual, err := client.PoolHealthDetails(context.Background(), "699d98642c564d2e855e9661899b7252")
+	actual, err := client.GetLoadBalancerPoolHealth(context.Background(), AccountIdentifier(testAccountID), "699d98642c564d2e855e9661899b7252")
 	if assert.NoError(t, err) {
 		assert.Equal(t, want, actual)
+	}
+}
+
+func TestLoadBalancerPoolHealthDetails_ZoneIsNotSupported(t *testing.T) {
+	setup()
+	defer teardown()
+
+	_, err := client.GetLoadBalancerPoolHealth(context.Background(), ZoneIdentifier(testZoneID), "foo")
+	if assert.Error(t, err) {
+		assert.Equal(t, fmt.Sprintf(errInvalidResourceContainerAccess, ZoneRouteLevel), err.Error())
 	}
 }

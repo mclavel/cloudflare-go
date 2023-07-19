@@ -28,15 +28,6 @@ func Headers(headers http.Header) Option {
 	}
 }
 
-// UsingAccount allows you to apply account-level changes (Load Balancing,
-// Railguns) to an account instead.
-func UsingAccount(accountID string) Option {
-	return func(api *API) error {
-		api.AccountID = accountID
-		return nil
-	}
-}
-
 // UsingRateLimit applies a non-default rate limit to client API requests
 // If not specified the default of 4rps will be applied.
 func UsingRateLimit(rps float64) Option {
@@ -88,6 +79,13 @@ func UserAgent(userAgent string) Option {
 func BaseURL(baseURL string) Option {
 	return func(api *API) error {
 		api.BaseURL = baseURL
+		return nil
+	}
+}
+
+func Debug(debug bool) Option {
+	return func(api *API) error {
+		api.Debug = debug
 		return nil
 	}
 }

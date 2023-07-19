@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-
-	"github.com/pkg/errors"
 )
 
 // DevicePostureIntegrationConfig contains authentication information
@@ -16,9 +14,11 @@ type DevicePostureIntegrationConfig struct {
 	ClientSecret string `json:"client_secret,omitempty"`
 	AuthUrl      string `json:"auth_url,omitempty"`
 	ApiUrl       string `json:"api_url,omitempty"`
+	ClientKey    string `json:"client_key,omitempty"`
+	CustomerID   string `json:"customer_id,omitempty"`
 }
 
-// DevicePosturIntegration represents a device posture integration.
+// DevicePostureIntegration represents a device posture integration.
 type DevicePostureIntegration struct {
 	IntegrationID string                         `json:"id,omitempty"`
 	Name          string                         `json:"name,omitempty"`
@@ -58,7 +58,7 @@ func (api *API) CreateDevicePostureIntegration(ctx context.Context, accountID st
 	var devicePostureIntegrationResponse DevicePostureIntegrationResponse
 	err = json.Unmarshal(res, &devicePostureIntegrationResponse)
 	if err != nil {
-		return DevicePostureIntegration{}, errors.Wrap(err, errUnmarshalError)
+		return DevicePostureIntegration{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return devicePostureIntegrationResponse.Result, nil
@@ -78,7 +78,7 @@ func (api *API) UpdateDevicePostureIntegration(ctx context.Context, accountID st
 	var devicePostureIntegrationResponse DevicePostureIntegrationResponse
 	err = json.Unmarshal(res, &devicePostureIntegrationResponse)
 	if err != nil {
-		return DevicePostureIntegration{}, errors.Wrap(err, errUnmarshalError)
+		return DevicePostureIntegration{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return devicePostureIntegrationResponse.Result, nil
@@ -98,7 +98,7 @@ func (api *API) DevicePostureIntegration(ctx context.Context, accountID, integra
 	var devicePostureIntegrationResponse DevicePostureIntegrationResponse
 	err = json.Unmarshal(res, &devicePostureIntegrationResponse)
 	if err != nil {
-		return DevicePostureIntegration{}, errors.Wrap(err, errUnmarshalError)
+		return DevicePostureIntegration{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return devicePostureIntegrationResponse.Result, nil
@@ -118,7 +118,7 @@ func (api *API) DevicePostureIntegrations(ctx context.Context, accountID string)
 	var devicePostureIntegrationListResponse DevicePostureIntegrationListResponse
 	err = json.Unmarshal(res, &devicePostureIntegrationListResponse)
 	if err != nil {
-		return []DevicePostureIntegration{}, ResultInfo{}, errors.Wrap(err, errUnmarshalError)
+		return []DevicePostureIntegration{}, ResultInfo{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return devicePostureIntegrationListResponse.Result, devicePostureIntegrationListResponse.ResultInfo, nil
@@ -152,6 +152,7 @@ type DevicePostureRule struct {
 	Schedule    string                   `json:"schedule,omitempty"`
 	Match       []DevicePostureRuleMatch `json:"match,omitempty"`
 	Input       DevicePostureRuleInput   `json:"input,omitempty"`
+	Expiration  string                   `json:"expiration,omitempty"`
 }
 
 // DevicePostureRuleMatch represents the conditions that the client must match to run the rule.
@@ -161,19 +162,37 @@ type DevicePostureRuleMatch struct {
 
 // DevicePostureRuleInput represents the value to be checked against.
 type DevicePostureRuleInput struct {
-	ID               string `json:"id,omitempty"`
-	Path             string `json:"path,omitempty"`
-	Exists           bool   `json:"exists,omitempty"`
-	Thumbprint       string `json:"thumbprint,omitempty"`
-	Sha256           string `json:"sha256,omitempty"`
-	Running          bool   `json:"running,omitempty"`
-	RequireAll       bool   `json:"requireAll,omitempty"`
-	Enabled          bool   `json:"enabled,omitempty"`
-	Version          string `json:"version,omitempty"`
-	Operator         string `json:"operator,omitempty"`
-	Domain           string `json:"domain,omitempty"`
-	ComplianceStatus string `json:"compliance_status,omitempty"`
-	ConnectionID     string `json:"connection_id,omitempty"`
+	ID               string   `json:"id,omitempty"`
+	Path             string   `json:"path,omitempty"`
+	Exists           bool     `json:"exists,omitempty"`
+	Thumbprint       string   `json:"thumbprint,omitempty"`
+	Sha256           string   `json:"sha256,omitempty"`
+	Running          bool     `json:"running,omitempty"`
+	RequireAll       bool     `json:"requireAll,omitempty"`
+	CheckDisks       []string `json:"checkDisks,omitempty"`
+	Enabled          bool     `json:"enabled,omitempty"`
+	Version          string   `json:"version,omitempty"`
+	VersionOperator  string   `json:"versionOperator,omitempty"`
+	Overall          string   `json:"overall,omitempty"`
+	SensorConfig     string   `json:"sensor_config,omitempty"`
+	Os               string   `json:"os,omitempty"`
+	OsDistroName     string   `json:"os_distro_name,omitempty"`
+	OsDistroRevision string   `json:"os_distro_revision,omitempty"`
+	OSVersionExtra   string   `json:"os_version_extra,omitempty"`
+	Operator         string   `json:"operator,omitempty"`
+	Domain           string   `json:"domain,omitempty"`
+	ComplianceStatus string   `json:"compliance_status,omitempty"`
+	ConnectionID     string   `json:"connection_id,omitempty"`
+	IssueCount       string   `json:"issue_count,omitempty"`
+	CountOperator    string   `json:"countOperator,omitempty"`
+	TotalScore       string   `json:"total_score,omitempty"`
+	ScoreOperator    string   `json:"scoreOperator,omitempty"`
+	CertificateID    string   `json:"certificate_id,omitempty"`
+	CommonName       string   `json:"cn,omitempty"`
+	ActiveThreats    int      `json:"active_threats,omitempty"`
+	NetworkStatus    string   `json:"network_status,omitempty"`
+	Infected         bool     `json:"infected,omitempty"`
+	IsActive         bool     `json:"is_active,omitempty"`
 }
 
 // DevicePostureRuleListResponse represents the response from the list
@@ -205,7 +224,7 @@ func (api *API) DevicePostureRules(ctx context.Context, accountID string) ([]Dev
 	var devicePostureRuleListResponse DevicePostureRuleListResponse
 	err = json.Unmarshal(res, &devicePostureRuleListResponse)
 	if err != nil {
-		return []DevicePostureRule{}, ResultInfo{}, errors.Wrap(err, errUnmarshalError)
+		return []DevicePostureRule{}, ResultInfo{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return devicePostureRuleListResponse.Result, devicePostureRuleListResponse.ResultInfo, nil
@@ -230,7 +249,7 @@ func (api *API) DevicePostureRule(ctx context.Context, accountID, ruleID string)
 	var devicePostureRuleDetailResponse DevicePostureRuleDetailResponse
 	err = json.Unmarshal(res, &devicePostureRuleDetailResponse)
 	if err != nil {
-		return DevicePostureRule{}, errors.Wrap(err, errUnmarshalError)
+		return DevicePostureRule{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return devicePostureRuleDetailResponse.Result, nil
@@ -250,7 +269,7 @@ func (api *API) CreateDevicePostureRule(ctx context.Context, accountID string, r
 	var devicePostureRuleDetailResponse DevicePostureRuleDetailResponse
 	err = json.Unmarshal(res, &devicePostureRuleDetailResponse)
 	if err != nil {
-		return DevicePostureRule{}, errors.Wrap(err, errUnmarshalError)
+		return DevicePostureRule{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return devicePostureRuleDetailResponse.Result, nil
@@ -261,7 +280,7 @@ func (api *API) CreateDevicePostureRule(ctx context.Context, accountID string, r
 // API reference: https://api.cloudflare.com/#device-posture-rules-update-device-posture-rule
 func (api *API) UpdateDevicePostureRule(ctx context.Context, accountID string, rule DevicePostureRule) (DevicePostureRule, error) {
 	if rule.ID == "" {
-		return DevicePostureRule{}, errors.Errorf("device posture rule ID cannot be empty")
+		return DevicePostureRule{}, fmt.Errorf("device posture rule ID cannot be empty")
 	}
 
 	uri := fmt.Sprintf(
@@ -279,7 +298,7 @@ func (api *API) UpdateDevicePostureRule(ctx context.Context, accountID string, r
 	var devicePostureRuleDetailResponse DevicePostureRuleDetailResponse
 	err = json.Unmarshal(res, &devicePostureRuleDetailResponse)
 	if err != nil {
-		return DevicePostureRule{}, errors.Wrap(err, errUnmarshalError)
+		return DevicePostureRule{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return devicePostureRuleDetailResponse.Result, nil

@@ -30,7 +30,9 @@ func TestDevicePostureIntegrations(t *testing.T) {
 						"auth_url":      "https://auth_url.example.com",
 						"api_url":       "https://api_url.example.com",
 						"client_id":     "test_client_id",
-						"client_secret": "test_client_secret"
+						"client_secret": "test_client_secret",
+						"customer_id":   "test_customer_id",
+						"client_key": 	 "test_client_key"
 					}
 				}
 			],
@@ -53,6 +55,8 @@ func TestDevicePostureIntegrations(t *testing.T) {
 			ApiUrl:       "https://api_url.example.com",
 			ClientID:     "test_client_id",
 			ClientSecret: "test_client_secret",
+			CustomerID:   "test_customer_id",
+			ClientKey:    "test_client_key",
 		},
 	}}
 
@@ -86,7 +90,9 @@ func TestDevicePostureIntegration(t *testing.T) {
 					"auth_url":      "https://auth_url.example.com",
 					"api_url":       "https://api_url.example.com",
 					"client_id":     "test_client_id",
-					"client_secret": "test_client_secret"
+					"client_secret": "test_client_secret",
+					"customer_id":   "test_customer_id",
+					"client_key": 	 "test_client_key"
 				}
 			}
 		}`, id)
@@ -102,6 +108,8 @@ func TestDevicePostureIntegration(t *testing.T) {
 			ApiUrl:       "https://api_url.example.com",
 			ClientID:     "test_client_id",
 			ClientSecret: "test_client_secret",
+			CustomerID:   "test_customer_id",
+			ClientKey:    "test_client_key",
 		},
 	}
 
@@ -135,7 +143,9 @@ func TestDevicePostureIntegrationUpdate(t *testing.T) {
 					"auth_url":      "https://auth_url.example.com",
 					"api_url":       "https://api_url.example.com",
 					"client_id":     "test_client_id",
-					"client_secret": "test_client_secret"
+					"client_secret": "test_client_secret",
+					"customer_id":   "test_customer_id",
+					"client_key": 	 "test_client_key"
 				}
 			}
 		}`, id)
@@ -151,6 +161,8 @@ func TestDevicePostureIntegrationUpdate(t *testing.T) {
 			ApiUrl:       "https://api_url.example.com",
 			ClientID:     "test_client_id",
 			ClientSecret: "test_client_secret",
+			CustomerID:   "test_customer_id",
+			ClientKey:    "test_client_key",
 		},
 	}
 
@@ -184,7 +196,9 @@ func TestDevicePostureIntegrationCreate(t *testing.T) {
 					"auth_url":      "https://auth_url.example.com",
 					"api_url":       "https://api_url.example.com",
 					"client_id":     "test_client_id",
-					"client_secret": "test_client_secret"
+					"client_secret": "test_client_secret",
+					"customer_id":   "test_customer_id",
+					"client_key": 	 "test_client_key"
 				}
 			}
 		}`, id)
@@ -200,6 +214,8 @@ func TestDevicePostureIntegrationCreate(t *testing.T) {
 			ApiUrl:       "https://api_url.example.com",
 			ClientID:     "test_client_id",
 			ClientSecret: "test_client_secret",
+			CustomerID:   "test_customer_id",
+			ClientKey:    "test_client_key",
 		},
 	}
 
@@ -252,6 +268,7 @@ func TestDevicePostureRules(t *testing.T) {
 					"type": "file",
 					"name": "My rule name",
 					"description": "My description",
+					"expiration": "1h",
 					"match": [
 						{
 							"platform": "ios"
@@ -283,6 +300,7 @@ func TestDevicePostureRules(t *testing.T) {
 		Description: "My description",
 		Type:        "file",
 		Schedule:    "1h",
+		Expiration:  "1h",
 		Match:       []DevicePostureRuleMatch{{Platform: "ios"}},
 		Input: DevicePostureRuleInput{
 			ID:         "9e597887-345e-4a32-a09c-68811b129768",
@@ -317,6 +335,7 @@ func TestDevicePostureFileRule(t *testing.T) {
 			"result": {
 				"id": "480f4f69-1a28-4fdd-9240-1ed29f0ac1db",
 				"schedule": "1h",
+				"expiration": "1h",
 				"type": "file",
 				"name": "My rule name",
 				"description": "My description",
@@ -341,6 +360,7 @@ func TestDevicePostureFileRule(t *testing.T) {
 		Description: "My description",
 		Type:        "file",
 		Schedule:    "1h",
+		Expiration:  "1h",
 		Match:       []DevicePostureRuleMatch{{Platform: "ios"}},
 		Input: DevicePostureRuleInput{
 			Path:   "/tmp/test",
@@ -372,6 +392,7 @@ func TestDevicePostureDiskEncryptionRule(t *testing.T) {
 			"result": {
 				"id": "480f4f69-1a28-4fdd-9240-1ed29f0ac1db",
 				"schedule": "1h",
+				"expiration": "1h",
 				"type": "disk_encryption",
 				"name": "My rule name",
 				"description": "My description",
@@ -381,7 +402,8 @@ func TestDevicePostureDiskEncryptionRule(t *testing.T) {
 					}
 				],
 				"input": {
-					"requireAll": true
+					"requireAll": true,
+					"checkDisks": ["C", "D"]
 				}
 			}
 		}
@@ -394,9 +416,11 @@ func TestDevicePostureDiskEncryptionRule(t *testing.T) {
 		Description: "My description",
 		Type:        "disk_encryption",
 		Schedule:    "1h",
+		Expiration:  "1h",
 		Match:       []DevicePostureRuleMatch{{Platform: "ios"}},
 		Input: DevicePostureRuleInput{
 			RequireAll: true,
+			CheckDisks: []string{"C", "D"},
 		},
 	}
 
@@ -423,6 +447,7 @@ func TestDevicePostureOsVersionRule(t *testing.T) {
 			"result": {
 				"id": "480f4f69-1a28-4fdd-9240-1ed29f0ac1db",
 				"schedule": "1h",
+				"expiration": "1h",
 				"type": "os_version",
 				"name": "My rule name",
 				"description": "My description",
@@ -446,6 +471,7 @@ func TestDevicePostureOsVersionRule(t *testing.T) {
 		Description: "My description",
 		Type:        "os_version",
 		Schedule:    "1h",
+		Expiration:  "1h",
 		Match:       []DevicePostureRuleMatch{{Platform: "ios"}},
 		Input: DevicePostureRuleInput{
 			Version:  "10.0.1",
@@ -476,6 +502,7 @@ func TestDevicePostureDomainJoinedRule(t *testing.T) {
 			"result": {
 				"id": "480f4f69-1a28-4fdd-9240-1ed29f0ac1db",
 				"schedule": "1h",
+				"expiration": "1h",
 				"type": "domain_joined",
 				"name": "My rule name",
 				"description": "My description",
@@ -498,9 +525,65 @@ func TestDevicePostureDomainJoinedRule(t *testing.T) {
 		Description: "My description",
 		Type:        "domain_joined",
 		Schedule:    "1h",
+		Expiration:  "1h",
 		Match:       []DevicePostureRuleMatch{{Platform: "ios"}},
 		Input: DevicePostureRuleInput{
 			Domain: "example.com",
+		},
+	}
+
+	mux.HandleFunc("/accounts/"+testAccountID+"/devices/posture/480f4f69-1a28-4fdd-9240-1ed29f0ac1db", handler)
+
+	actual, err := client.DevicePostureRule(context.Background(), testAccountID, "480f4f69-1a28-4fdd-9240-1ed29f0ac1db")
+
+	if assert.NoError(t, err) {
+		assert.Equal(t, want, actual)
+	}
+}
+
+func TestDevicePostureClientCertificateRule(t *testing.T) {
+	setup()
+	defer teardown()
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method, "Expected method 'GET', got %s", r.Method)
+		w.Header().Set("content-type", "application/json")
+		fmt.Fprintf(w, `{
+			"success": true,
+			"errors": [],
+			"messages": [],
+			"result": {
+				"id": "480f4f69-1a28-4fdd-9240-1ed29f0ac1db",
+				"schedule": "1h",
+				"expiration": "1h",
+				"type": "client_certificate",
+				"name": "My rule name",
+				"description": "My description",
+				"match": [
+					{
+						"platform": "windows"
+					}
+				],
+				"input": {
+					"certificate_id": "d2c04b78-3ba2-4294-8efa-4e85aef0777f",
+					"cn": "example.com"
+				}
+			}
+		}
+		`)
+	}
+
+	want := DevicePostureRule{
+		ID:          "480f4f69-1a28-4fdd-9240-1ed29f0ac1db",
+		Name:        "My rule name",
+		Description: "My description",
+		Type:        "client_certificate",
+		Schedule:    "1h",
+		Expiration:  "1h",
+		Match:       []DevicePostureRuleMatch{{Platform: "windows"}},
+		Input: DevicePostureRuleInput{
+			CertificateID: "d2c04b78-3ba2-4294-8efa-4e85aef0777f",
+			CommonName:    "example.com",
 		},
 	}
 
@@ -527,6 +610,7 @@ func TestCreateDevicePostureRule(t *testing.T) {
 			"result": {
 				"id": "480f4f69-1a28-4fdd-9240-1ed29f0ac1db",
 				"schedule": "1h",
+				"expiration": "1h",
 				"type": "file",
 				"name": "My rule name",
 				"description": "My description",
@@ -549,6 +633,7 @@ func TestCreateDevicePostureRule(t *testing.T) {
 		Description: "My description",
 		Type:        "file",
 		Schedule:    "1h",
+		Expiration:  "1h",
 		Match:       []DevicePostureRuleMatch{{Platform: "ios"}},
 		Input:       DevicePostureRuleInput{ID: "9e597887-345e-4a32-a09c-68811b129768"},
 	}
@@ -560,6 +645,7 @@ func TestCreateDevicePostureRule(t *testing.T) {
 		Description: "My description",
 		Type:        "file",
 		Schedule:    "1h",
+		Expiration:  "1h",
 		Match:       []DevicePostureRuleMatch{{Platform: "ios"}},
 		Input:       DevicePostureRuleInput{ID: "9e597887-345e-4a32-a09c-68811b129768"},
 	})
@@ -583,6 +669,7 @@ func TestUpdateDevicePostureRule(t *testing.T) {
 			"result": {
 				"id": "480f4f69-1a28-4fdd-9240-1ed29f0ac1db",
 				"schedule": "1h",
+				"expiration": "1h",
 				"type": "file",
 				"name": "My rule name",
 				"description": "My description",
@@ -605,6 +692,7 @@ func TestUpdateDevicePostureRule(t *testing.T) {
 		Description: "My description",
 		Type:        "file",
 		Schedule:    "1h",
+		Expiration:  "1h",
 		Match:       []DevicePostureRuleMatch{{Platform: "ios"}},
 		Input:       DevicePostureRuleInput{ID: "9e597887-345e-4a32-a09c-68811b129768"},
 	}

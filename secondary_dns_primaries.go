@@ -3,10 +3,9 @@ package cloudflare
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
-
-	"github.com/pkg/errors"
 )
 
 const (
@@ -53,7 +52,7 @@ func (api *API) GetSecondaryDNSPrimary(ctx context.Context, accountID, primaryID
 	var r SecondaryDNSPrimaryDetailResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return SecondaryDNSPrimary{}, errors.Wrap(err, errUnmarshalError)
+		return SecondaryDNSPrimary{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return r.Result, nil
 }
@@ -72,7 +71,7 @@ func (api *API) ListSecondaryDNSPrimaries(ctx context.Context, accountID string)
 	var r SecondaryDNSPrimaryListResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return []SecondaryDNSPrimary{}, errors.Wrap(err, errUnmarshalError)
+		return []SecondaryDNSPrimary{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return r.Result, nil
 }
@@ -101,7 +100,7 @@ func (api *API) CreateSecondaryDNSPrimary(ctx context.Context, accountID string,
 	var r SecondaryDNSPrimaryDetailResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return SecondaryDNSPrimary{}, errors.Wrap(err, errUnmarshalError)
+		return SecondaryDNSPrimary{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return r.Result, nil
 }
@@ -133,7 +132,7 @@ func (api *API) UpdateSecondaryDNSPrimary(ctx context.Context, accountID string,
 	var r SecondaryDNSPrimaryDetailResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return SecondaryDNSPrimary{}, errors.Wrap(err, errUnmarshalError)
+		return SecondaryDNSPrimary{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return r.Result, nil
 }

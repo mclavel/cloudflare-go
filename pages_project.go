@@ -5,25 +5,30 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
-	"strconv"
 	"time"
+)
 
-	"github.com/pkg/errors"
+type PagesPreviewDeploymentSetting string
+
+const (
+	PagesPreviewAllBranches    PagesPreviewDeploymentSetting = "all"
+	PagesPreviewNoBranches     PagesPreviewDeploymentSetting = "none"
+	PagesPreviewCustomBranches PagesPreviewDeploymentSetting = "custom"
 )
 
 // PagesProject represents a Pages project.
 type PagesProject struct {
-	Name                string                        `json:"name"`
+	Name                string                        `json:"name,omitempty"`
 	ID                  string                        `json:"id"`
 	CreatedOn           *time.Time                    `json:"created_on"`
 	SubDomain           string                        `json:"subdomain"`
 	Domains             []string                      `json:"domains,omitempty"`
-	Source              PagesProjectSource            `json:"source"`
+	Source              *PagesProjectSource           `json:"source,omitempty"`
 	BuildConfig         PagesProjectBuildConfig       `json:"build_config"`
 	DeploymentConfigs   PagesProjectDeploymentConfigs `json:"deployment_configs"`
 	LatestDeployment    PagesProjectDeployment        `json:"latest_deployment"`
 	CanonicalDeployment PagesProjectDeployment        `json:"canonical_deployment"`
+	ProductionBranch    string                        `json:"production_branch,omitempty"`
 }
 
 // PagesProjectSource represents the configuration of a Pages project source.
@@ -34,11 +39,15 @@ type PagesProjectSource struct {
 
 // PagesProjectSourceConfig represents the properties use to configure a Pages project source.
 type PagesProjectSourceConfig struct {
-	Owner              string `json:"owner"`
-	RepoName           string `json:"repo_name"`
-	ProductionBranch   string `json:"production_branch"`
-	PRCommentsEnabled  bool   `json:"pr_comments_enabled"`
-	DeploymentsEnabled bool   `json:"deployments_enabled"`
+	Owner                        string                        `json:"owner"`
+	RepoName                     string                        `json:"repo_name"`
+	ProductionBranch             string                        `json:"production_branch"`
+	PRCommentsEnabled            bool                          `json:"pr_comments_enabled"`
+	DeploymentsEnabled           bool                          `json:"deployments_enabled"`
+	ProductionDeploymentsEnabled bool                          `json:"production_deployments_enabled"`
+	PreviewDeploymentSetting     PagesPreviewDeploymentSetting `json:"preview_deployment_setting"`
+	PreviewBranchIncludes        []string                      `json:"preview_branch_includes"`
+	PreviewBranchExcludes        []string                      `json:"preview_branch_excludes"`
 }
 
 // PagesProjectBuildConfig represents the configuration of a Pages project build process.
@@ -58,36 +67,48 @@ type PagesProjectDeploymentConfigs struct {
 
 // PagesProjectDeploymentConfigEnvironment represents the configuration for preview or production deploys.
 type PagesProjectDeploymentConfigEnvironment struct {
-	EnvVars PagesProjectDeploymentConfigEnvVars `json:"env_vars"`
-}
-
-// PagesProjectDeploymentConfigEnvVars represents the BUILD_VERSION environment variables for a specific build config.
-type PagesProjectDeploymentConfigEnvVars struct {
-	BuildVersion PagesProjectDeploymentConfigBuildVersion `json:"BUILD_VERSION"`
-}
-
-// PagesProjectDeploymentConfigBuildVersion represents a value for a BUILD_VERSION.
-type PagesProjectDeploymentConfigBuildVersion struct {
-	Value string `json:"value"`
+	EnvVars                          EnvironmentVariableMap `json:"env_vars,omitempty"`
+	KvNamespaces                     NamespaceBindingMap    `json:"kv_namespaces,omitempty"`
+	DoNamespaces                     NamespaceBindingMap    `json:"durable_object_namespaces,omitempty"`
+	D1Databases                      D1BindingMap           `json:"d1_databases,omitempty"`
+	R2Bindings                       R2BindingMap           `json:"r2_buckets,omitempty"`
+	ServiceBindings                  ServiceBindingMap      `json:"services,omitempty"`
+	CompatibilityDate                string                 `json:"compatibility_date,omitempty"`
+	CompatibilityFlags               []string               `json:"compatibility_flags,omitempty"`
+	FailOpen                         bool                   `json:"fail_open"`
+	AlwaysUseLatestCompatibilityDate bool                   `json:"always_use_latest_compatibility_date"`
+	UsageModel                       UsageModel             `json:"usage_model,omitempty"`
+	Placement                        *Placement             `json:"placement,omitempty"`
 }
 
 // PagesProjectDeployment represents a deployment to a Pages project.
 type PagesProjectDeployment struct {
-	ID                string                        `json:"id"`
-	ShortID           string                        `json:"short_id"`
-	ProjectID         string                        `json:"project_id"`
-	ProjectName       string                        `json:"project_name"`
-	Environment       string                        `json:"environment"`
-	URL               string                        `json:"url"`
-	CreatedOn         *time.Time                    `json:"created_on"`
-	ModifiedOn        *time.Time                    `json:"modified_on"`
-	Aliases           []string                      `json:"aliases,omitempty"`
-	LatestStage       PagesProjectDeploymentStage   `json:"latest_stage"`
-	EnvVars           map[string]map[string]string  `json:"env_vars"`
-	DeploymentTrigger PagesProjectDeploymentTrigger `json:"deployment_trigger"`
-	Stages            []PagesProjectDeploymentStage `json:"stages"`
-	BuildConfig       PagesProjectBuildConfig       `json:"build_config"`
-	Source            PagesProjectSource            `json:"source"`
+	ID                 string                        `json:"id"`
+	ShortID            string                        `json:"short_id"`
+	ProjectID          string                        `json:"project_id"`
+	ProjectName        string                        `json:"project_name"`
+	Environment        string                        `json:"environment"`
+	URL                string                        `json:"url"`
+	CreatedOn          *time.Time                    `json:"created_on"`
+	ModifiedOn         *time.Time                    `json:"modified_on"`
+	Aliases            []string                      `json:"aliases,omitempty"`
+	LatestStage        PagesProjectDeploymentStage   `json:"latest_stage"`
+	EnvVars            EnvironmentVariableMap        `json:"env_vars"`
+	KvNamespaces       NamespaceBindingMap           `json:"kv_namespaces,omitempty"`
+	DoNamespaces       NamespaceBindingMap           `json:"durable_object_namespaces,omitempty"`
+	D1Databases        D1BindingMap                  `json:"d1_databases,omitempty"`
+	R2Bindings         R2BindingMap                  `json:"r2_buckets,omitempty"`
+	ServiceBindings    ServiceBindingMap             `json:"services,omitempty"`
+	Placement          *Placement                    `json:"placement,omitempty"`
+	DeploymentTrigger  PagesProjectDeploymentTrigger `json:"deployment_trigger"`
+	Stages             []PagesProjectDeploymentStage `json:"stages"`
+	BuildConfig        PagesProjectBuildConfig       `json:"build_config"`
+	Source             PagesProjectSource            `json:"source"`
+	CompatibilityDate  string                        `json:"compatibility_date,omitempty"`
+	CompatibilityFlags []string                      `json:"compatibility_flags,omitempty"`
+	UsageModel         UsageModel                    `json:"usage_model,omitempty"`
+	IsSkipped          bool                          `json:"is_skipped"`
+	ProductionBranch   string                        `json:"production_branch,omitempty"`
 }
 
 // PagesProjectDeploymentStage represents an individual stage in a Pages project deployment.
@@ -122,22 +143,93 @@ type pagesProjectListResponse struct {
 	ResultInfo `json:"result_info"`
 }
 
+type EnvironmentVariableMap map[string]*EnvironmentVariable
+
+// PagesProjectDeploymentVar represents a deployment environment variable.
+type EnvironmentVariable struct {
+	Value string     `json:"value"`
+	Type  EnvVarType `json:"type"`
+}
+
+type EnvVarType string
+
+const (
+	PlainText  EnvVarType = "plain_text"
+	SecretText EnvVarType = "secret_text"
+)
+
+type NamespaceBindingMap map[string]*NamespaceBindingValue
+
+type NamespaceBindingValue struct {
+	Value string `json:"namespace_id"`
+}
+
+type R2BindingMap map[string]*R2BindingValue
+
+type R2BindingValue struct {
+	Name string `json:"name"`
+}
+
+type D1BindingMap map[string]*D1Binding
+
+type D1Binding struct {
+	ID string `json:"id"`
+}
+
+type ServiceBindingMap map[string]*ServiceBinding
+
+type ServiceBinding struct {
+	Service     string `json:"service"`
+	Environment string `json:"environment"`
+}
+
+type UsageModel string
+
+const (
+	Bundled UsageModel = "bundled"
+	Unbound UsageModel = "unbound"
+)
+
+type ListPagesProjectsParams struct {
+	PaginationOptions
+}
+
+type CreatePagesProjectParams struct {
+	Name                string                        `json:"name,omitempty"`
+	SubDomain           string                        `json:"subdomain"`
+	Domains             []string                      `json:"domains,omitempty"`
+	Source              *PagesProjectSource           `json:"source,omitempty"`
+	BuildConfig         PagesProjectBuildConfig       `json:"build_config"`
+	DeploymentConfigs   PagesProjectDeploymentConfigs `json:"deployment_configs"`
+	LatestDeployment    PagesProjectDeployment        `json:"latest_deployment"`
+	CanonicalDeployment PagesProjectDeployment        `json:"canonical_deployment"`
+	ProductionBranch    string                        `json:"production_branch,omitempty"`
+}
+
+type UpdatePagesProjectParams struct {
+	// `ID` is used for addressing the resource via the UI or a stable
+	// anchor whereas `Name` is used for updating the value.
+	ID                  string                        `json:"-"`
+	Name                string                        `json:"name,omitempty"`
+	SubDomain           string                        `json:"subdomain"`
+	Domains             []string                      `json:"domains,omitempty"`
+	Source              *PagesProjectSource           `json:"source,omitempty"`
+	BuildConfig         PagesProjectBuildConfig       `json:"build_config"`
+	DeploymentConfigs   PagesProjectDeploymentConfigs `json:"deployment_configs"`
+	LatestDeployment    PagesProjectDeployment        `json:"latest_deployment"`
+	CanonicalDeployment PagesProjectDeployment        `json:"canonical_deployment"`
+	ProductionBranch    string                        `json:"production_branch,omitempty"`
+}
+
 // ListPagesProjects returns all Pages projects for an account.
 //
 // API reference: https://api.cloudflare.com/#pages-project-get-projects
-func (api *API) ListPagesProjects(ctx context.Context, accountID string, pageOpts PaginationOptions) ([]PagesProject, ResultInfo, error) {
-	v := url.Values{}
-	if pageOpts.PerPage > 0 {
-		v.Set("per_page", strconv.Itoa(pageOpts.PerPage))
-	}
-	if pageOpts.Page > 0 {
-		v.Set("page", strconv.Itoa(pageOpts.Page))
+func (api *API) ListPagesProjects(ctx context.Context, rc *ResourceContainer, params ListPagesProjectsParams) ([]PagesProject, ResultInfo, error) {
+	if rc.Identifier == "" {
+		return []PagesProject{}, ResultInfo{}, ErrMissingAccountID
 	}
 
-	uri := fmt.Sprintf("/accounts/%s/pages/projects", accountID)
-	if len(v) > 0 {
-		uri = fmt.Sprintf("%s?%s", uri, v.Encode())
-	}
+	uri := buildURI(fmt.Sprintf("/accounts/%s/pages/projects", rc.Identifier), params)
 
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
@@ -146,16 +238,20 @@ func (api *API) ListPagesProjects(ctx context.Context, accountID string, pageOpt
 	var r pagesProjectListResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return []PagesProject{}, ResultInfo{}, errors.Wrap(err, errUnmarshalError)
+		return []PagesProject{}, ResultInfo{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return r.Result, r.ResultInfo, nil
 }
 
-// PagesProject returns a single Pages project by name.
+// GetPagesProject returns a single Pages project by name.
 //
 // API reference: https://api.cloudflare.com/#pages-project-get-project
-func (api *API) PagesProject(ctx context.Context, accountID, projectName string) (PagesProject, error) {
-	uri := fmt.Sprintf("/accounts/%s/pages/projects/%s", accountID, projectName)
+func (api *API) GetPagesProject(ctx context.Context, rc *ResourceContainer, projectName string) (PagesProject, error) {
+	if rc.Identifier == "" {
+		return PagesProject{}, ErrMissingAccountID
+	}
+
+	uri := fmt.Sprintf("/accounts/%s/pages/projects/%s", rc.Identifier, projectName)
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return PagesProject{}, err
@@ -163,7 +259,7 @@ func (api *API) PagesProject(ctx context.Context, accountID, projectName string)
 	var r pagesProjectResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return PagesProject{}, errors.Wrap(err, errUnmarshalError)
+		return PagesProject{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return r.Result, nil
 }
@@ -171,16 +267,19 @@ func (api *API) PagesProject(ctx context.Context, accountID, projectName string)
 // CreatePagesProject creates a new Pages project in an account.
 //
 // API reference: https://api.cloudflare.com/#pages-project-create-project
-func (api *API) CreatePagesProject(ctx context.Context, accountID string, pagesProject PagesProject) (PagesProject, error) {
-	uri := fmt.Sprintf("/accounts/%s/pages/projects", accountID)
-	res, err := api.makeRequestContext(ctx, http.MethodPost, uri, pagesProject)
+func (api *API) CreatePagesProject(ctx context.Context, rc *ResourceContainer, params CreatePagesProjectParams) (PagesProject, error) {
+	if rc.Identifier == "" {
+		return PagesProject{}, ErrMissingAccountID
+	}
+	uri := fmt.Sprintf("/accounts/%s/pages/projects", rc.Identifier)
+	res, err := api.makeRequestContext(ctx, http.MethodPost, uri, params)
 	if err != nil {
 		return PagesProject{}, err
 	}
 	var r pagesProjectResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return PagesProject{}, errors.Wrap(err, errUnmarshalError)
+		return PagesProject{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return r.Result, nil
 }
@@ -188,16 +287,24 @@ func (api *API) CreatePagesProject(ctx context.Context, accountID string, pagesP
 // UpdatePagesProject updates an existing Pages project.
 //
 // API reference: https://api.cloudflare.com/#pages-project-update-project
-func (api *API) UpdatePagesProject(ctx context.Context, accountID, projectName string, pagesProject PagesProject) (PagesProject, error) {
-	uri := fmt.Sprintf("/accounts/%s/pages/projects/%s", accountID, projectName)
-	res, err := api.makeRequestContext(ctx, http.MethodPatch, uri, pagesProject)
+func (api *API) UpdatePagesProject(ctx context.Context, rc *ResourceContainer, params UpdatePagesProjectParams) (PagesProject, error) {
+	if rc.Identifier == "" {
+		return PagesProject{}, ErrMissingAccountID
+	}
+
+	if params.ID == "" {
+		return PagesProject{}, ErrMissingIdentifier
+	}
+
+	uri := fmt.Sprintf("/accounts/%s/pages/projects/%s", rc.Identifier, params.ID)
+	res, err := api.makeRequestContext(ctx, http.MethodPatch, uri, params)
 	if err != nil {
 		return PagesProject{}, err
 	}
 	var r pagesProjectResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return PagesProject{}, errors.Wrap(err, errUnmarshalError)
+		return PagesProject{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return r.Result, nil
 }
@@ -205,8 +312,11 @@ func (api *API) UpdatePagesProject(ctx context.Context, accountID, projectName s
 // DeletePagesProject deletes a Pages project by name.
 //
 // API reference: https://api.cloudflare.com/#pages-project-delete-project
-func (api *API) DeletePagesProject(ctx context.Context, accountID, projectName string) error {
-	uri := fmt.Sprintf("/accounts/%s/pages/projects/%s", accountID, projectName)
+func (api *API) DeletePagesProject(ctx context.Context, rc *ResourceContainer, projectName string) error {
+	if rc.Identifier == "" {
+		return ErrMissingAccountID
+	}
+	uri := fmt.Sprintf("/accounts/%s/pages/projects/%s", rc.Identifier, projectName)
 	res, err := api.makeRequestContext(ctx, http.MethodDelete, uri, nil)
 	if err != nil {
 		return err
@@ -214,7 +324,7 @@ func (api *API) DeletePagesProject(ctx context.Context, accountID, projectName s
 	var r pagesProjectResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return errors.Wrap(err, errUnmarshalError)
+		return fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return nil
 }

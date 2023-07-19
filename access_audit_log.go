@@ -8,8 +8,6 @@ import (
 	"net/url"
 	"strconv"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 // AccessAuditLogRecord is the structure of a single Access Audit Log entry.
@@ -50,13 +48,13 @@ func (api *API) AccessAuditLogs(ctx context.Context, accountID string, opts Acce
 
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
-		return []AccessAuditLogRecord{}, err
+		return []AccessAuditLogRecord{}, fmt.Errorf("%s: %w", errMakeRequestError, err)
 	}
 
 	var accessAuditLogListResponse AccessAuditLogListResponse
 	err = json.Unmarshal(res, &accessAuditLogListResponse)
 	if err != nil {
-		return []AccessAuditLogRecord{}, errors.Wrap(err, errUnmarshalError)
+		return []AccessAuditLogRecord{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return accessAuditLogListResponse.Result, nil
@@ -76,11 +74,11 @@ func (a AccessAuditLogFilterOptions) Encode() string {
 	}
 
 	if a.Since != nil {
-		v.Set("since", (*a.Since).Format(time.RFC3339))
+		v.Set("since", a.Since.Format(time.RFC3339))
 	}
 
 	if a.Until != nil {
-		v.Set("until", (*a.Until).Format(time.RFC3339))
+		v.Set("until", a.Until.Format(time.RFC3339))
 	}
 
 	return v.Encode()

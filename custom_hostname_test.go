@@ -3,7 +3,7 @@ package cloudflare
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -54,6 +54,10 @@ func TestCustomHostname_CreateCustomHostname(t *testing.T) {
 			"type": "dv",
 			"cname_target": "dcv.digicert.com",
 			"cname": "810b7d5f01154524b961ba0cd578acc2.app.example.com",
+			"validation_records": [{
+				"cname_target": "dcv.digicert.com",
+				"cname": "810b7d5f01154524b961ba0cd578acc2.app.example.com"
+			}],
 			"settings": {
 			"http2": "on"
 			}
@@ -80,17 +84,21 @@ func TestCustomHostname_CreateCustomHostname(t *testing.T) {
 
 	createdAt, _ := time.Parse(time.RFC3339, "2020-02-06T18:11:23.531995Z")
 
+	validationRec := SSLValidationRecord{
+		CnameTarget: "dcv.digicert.com",
+		CnameName:   "810b7d5f01154524b961ba0cd578acc2.app.example.com",
+	}
 	want := &CustomHostnameResponse{
 		Result: CustomHostname{
 			ID:                 "0d89c70d-ad9f-4843-b99f-6cc0252067e9",
 			Hostname:           "app.example.com",
 			CustomOriginServer: "example.app.com",
 			SSL: &CustomHostnameSSL{
-				Type:        "dv",
-				Method:      "cname",
-				Status:      "pending_validation",
-				CnameTarget: "dcv.digicert.com",
-				CnameName:   "810b7d5f01154524b961ba0cd578acc2.app.example.com",
+				Type:                "dv",
+				Method:              "cname",
+				Status:              "pending_validation",
+				SSLValidationRecord: validationRec,
+				ValidationRecords:   []SSLValidationRecord{validationRec},
 				Settings: CustomHostnameSSLSettings{
 					HTTP2: "on",
 				},
@@ -172,11 +180,13 @@ func TestCustomHostname_CreateCustomHostname_MethodTxt(t *testing.T) {
 			Hostname:           "app.example.com",
 			CustomOriginServer: "example.app.com",
 			SSL: &CustomHostnameSSL{
-				Type:     "dv",
-				Method:   "txt",
-				Status:   "pending_validation",
-				TxtName:  "app.example.com",
-				TxtValue: "ca3-f8db94da174g4c409b17fcaa5470deb2",
+				Type:   "dv",
+				Method: "txt",
+				Status: "pending_validation",
+				SSLValidationRecord: SSLValidationRecord{
+					TxtName:  "app.example.com",
+					TxtValue: "ca3-f8db94da174g4c409b17fcaa5470deb2",
+				},
 				Settings: CustomHostnameSSLSettings{
 					HTTP2: "on",
 				},
@@ -242,11 +252,13 @@ func TestCustomHostname_CreateCustomHostname_CustomOrigin(t *testing.T) {
 			Hostname:           "app.example.com",
 			CustomOriginServer: "example.app.com",
 			SSL: &CustomHostnameSSL{
-				Type:        "dv",
-				Method:      "cname",
-				Status:      "pending_validation",
-				CnameTarget: "dcv.digicert.com",
-				CnameName:   "810b7d5f01154524b961ba0cd578acc2.app.example.com",
+				Type:   "dv",
+				Method: "cname",
+				Status: "pending_validation",
+				SSLValidationRecord: SSLValidationRecord{
+					CnameTarget: "dcv.digicert.com",
+					CnameName:   "810b7d5f01154524b961ba0cd578acc2.app.example.com",
+				},
 				Settings: CustomHostnameSSLSettings{
 					HTTP2: "on",
 				},
@@ -450,18 +462,20 @@ func TestCustomHostname_CustomHostnames(t *testing.T) {
 			ID:       "custom_host_1",
 			Hostname: "custom.host.one",
 			SSL: &CustomHostnameSSL{
-				ID:           "0d89c70d-ad9f-4843-b99f-6cc0252067e9",
-				Type:         "dv",
-				Method:       "cname",
-				Status:       "pending_validation",
-				CnameTarget:  "dcv.digicert.com",
-				CnameName:    "810b7d5f01154524b961ba0cd578acc2.app.example.com",
+				ID:     "0d89c70d-ad9f-4843-b99f-6cc0252067e9",
+				Type:   "dv",
+				Method: "cname",
+				Status: "pending_validation",
+				SSLValidationRecord: SSLValidationRecord{
+					CnameTarget: "dcv.digicert.com",
+					CnameName:   "810b7d5f01154524b961ba0cd578acc2.app.example.com",
+					HTTPUrl:     "http://app.example.com/.well-known/pki-validation/ca3-da12a1c25e7b48cf80408c6c1763b8a2.txt",
+					HTTPBody:    "ca3-574923932a82475cb8592200f1a2a23d",
+				},
 				Issuer:       "DigiCertInc",
 				SerialNumber: "6743787633689793699141714808227354901",
-				HTTPUrl:      "http://app.example.com/.well-known/pki-validation/ca3-da12a1c25e7b48cf80408c6c1763b8a2.txt",
-				HTTPBody:     "ca3-574923932a82475cb8592200f1a2a23d",
 			},
-			CustomMetadata: CustomMetadata{"a_random_field": "random field value"},
+			CustomMetadata: &CustomMetadata{"a_random_field": "random field value"},
 			Status:         PENDING,
 			VerificationErrors: []string{"None of the A or AAAA records are owned " +
 				"by this account and the pre-generated ownership verification token was not found."},
@@ -538,7 +552,7 @@ func TestCustomHostname_CustomHostname(t *testing.T) {
 				Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256", "AES128-SHA"},
 			},
 		},
-		CustomMetadata: CustomMetadata{"origin": "a.custom.origin"},
+		CustomMetadata: &CustomMetadata{"origin": "a.custom.origin"},
 		Status:         PENDING,
 		VerificationErrors: []string{"None of the A or AAAA records are owned " +
 			"by this account and the pre-generated ownership verification token was not found."},
@@ -595,12 +609,14 @@ func TestCustomHostname_CustomHostname_WithSSLError(t *testing.T) {
 		ID:       "bar",
 		Hostname: "example.com",
 		SSL: &CustomHostnameSSL{
-			Type:        "dv",
-			Method:      "cname",
-			Status:      "pending_validation",
-			CnameName:   "810b7d5f01154524b961ba0cd578acc2.example.com",
-			CnameTarget: "dcv.digicert.com",
-			ValidationErrors: []CustomHostnameSSLValidationErrors{
+			Type:   "dv",
+			Method: "cname",
+			Status: "pending_validation",
+			SSLValidationRecord: SSLValidationRecord{
+				CnameName:   "810b7d5f01154524b961ba0cd578acc2.example.com",
+				CnameTarget: "dcv.digicert.com",
+			},
+			ValidationErrors: []SSLValidationError{
 				{
 					Message: "SERVFAIL looking up CAA for example.com",
 				},
@@ -661,11 +677,13 @@ func TestCustomHostname_UpdateCustomHostnameSSL(t *testing.T) {
 			Hostname:           "app.example.com",
 			CustomOriginServer: "example.app.com",
 			SSL: &CustomHostnameSSL{
-				Type:        "dv",
-				Method:      "cname",
-				Status:      "pending_validation",
-				CnameTarget: "dcv.digicert.com",
-				CnameName:   "810b7d5f01154524b961ba0cd578acc2.app.example.com",
+				Type:   "dv",
+				Method: "cname",
+				Status: "pending_validation",
+				SSLValidationRecord: SSLValidationRecord{
+					CnameTarget: "dcv.digicert.com",
+					CnameName:   "810b7d5f01154524b961ba0cd578acc2.app.example.com",
+				},
 				Settings: CustomHostnameSSLSettings{
 					HTTP2: "off",
 					TLS13: "on",
@@ -688,7 +706,7 @@ func TestCustomHostname_UpdateCustomHostname(t *testing.T) {
 		assert.Equal(t, http.MethodPatch, r.Method, "Expected method 'PATCH', got %s", r.Method)
 
 		defer r.Body.Close()
-		reqBody, err := ioutil.ReadAll(r.Body)
+		reqBody, err := io.ReadAll(r.Body)
 		assert.NoError(t, err, "Reading request body")
 		assert.JSONEq(t, `
 {
@@ -722,8 +740,8 @@ func TestCustomHostname_UpdateCustomHostname(t *testing.T) {
 			"cname_target": "dcv.digicert.com",
 			"cname": "810b7d5f01154524b961ba0cd578acc2.app.example.com",
 			"settings": {
-			"http2": "off",
-			"tls_1_3": "on"
+				"http2": "off",
+				"tls_1_3": "on"
 			}
 		}
   	}
@@ -739,16 +757,190 @@ func TestCustomHostname_UpdateCustomHostname(t *testing.T) {
 			Hostname:           "app.example.com",
 			CustomOriginServer: "example.app.com",
 			SSL: &CustomHostnameSSL{
-				Type:        "dv",
-				Method:      "cname",
-				Status:      "pending_validation",
-				CnameTarget: "dcv.digicert.com",
-				CnameName:   "810b7d5f01154524b961ba0cd578acc2.app.example.com",
+				Type:   "dv",
+				Method: "cname",
+				Status: "pending_validation",
+				SSLValidationRecord: SSLValidationRecord{
+					CnameTarget: "dcv.digicert.com",
+					CnameName:   "810b7d5f01154524b961ba0cd578acc2.app.example.com",
+				},
 				Settings: CustomHostnameSSLSettings{
 					HTTP2: "off",
 					TLS13: "on",
 				},
 			},
+		},
+		Response: Response{Success: true, Errors: []ResponseInfo{}, Messages: []ResponseInfo{}},
+	}
+
+	if assert.NoError(t, err) {
+		assert.Equal(t, want, response)
+	}
+}
+
+func TestCustomHostname_UpdateCustomHostnameWithCustomMetadata(t *testing.T) {
+	setup()
+	defer teardown()
+
+	mux.HandleFunc("/zones/foo/custom_hostnames/0d89c70d-ad9f-4843-b99f-6cc0252067e9", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPatch, r.Method, "Expected method 'PATCH', got %s", r.Method)
+
+		defer r.Body.Close()
+		reqBody, err := io.ReadAll(r.Body)
+		assert.NoError(t, err, "Reading request body")
+		assert.JSONEq(t, `
+{
+	"hostname": "app.example.com",
+	"custom_origin_server": "example.app.com",
+	"ssl": {
+		"method": "cname",
+		"type": "dv",
+		"wildcard": false,
+		"settings": {}
+	},
+	"custom_metadata": {
+		"a_random_field": "updated field value"
+	},
+	"ownership_verification": {},
+	"ownership_verification_http": {}
+}`, string(reqBody), "Unexpected request body")
+
+		w.Header().Set("content-type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		fmt.Fprintf(w, `
+{
+	"success": true,
+	"errors": [],
+	"messages": [],
+	"result": {
+		"id": "0d89c70d-ad9f-4843-b99f-6cc0252067e9",
+		"hostname": "app.example.com",
+		"custom_origin_server": "example.app.com",
+		"ssl": {
+			"status": "pending_validation",
+			"method": "cname",
+			"type": "dv",
+			"cname_target": "dcv.digicert.com",
+			"cname": "810b7d5f01154524b961ba0cd578acc2.app.example.com",
+			"settings": {
+				"http2": "off",
+				"tls_1_3": "on"
+			}
+		},
+		"custom_metadata": {
+			"a_random_field": "updated field value"
+		}
+	}
+}`)
+	})
+
+	wildcard := false
+	response, err := client.UpdateCustomHostname(context.Background(), "foo", "0d89c70d-ad9f-4843-b99f-6cc0252067e9", CustomHostname{Hostname: "app.example.com", CustomOriginServer: "example.app.com", SSL: &CustomHostnameSSL{Method: "cname", Type: "dv", Wildcard: &wildcard}, CustomMetadata: &CustomMetadata{"a_random_field": "updated field value"}})
+
+	want := &CustomHostnameResponse{
+		Result: CustomHostname{
+			ID:                 "0d89c70d-ad9f-4843-b99f-6cc0252067e9",
+			Hostname:           "app.example.com",
+			CustomOriginServer: "example.app.com",
+			SSL: &CustomHostnameSSL{
+				Type:   "dv",
+				Method: "cname",
+				Status: "pending_validation",
+				SSLValidationRecord: SSLValidationRecord{
+					CnameTarget: "dcv.digicert.com",
+					CnameName:   "810b7d5f01154524b961ba0cd578acc2.app.example.com",
+				},
+				Settings: CustomHostnameSSLSettings{
+					HTTP2: "off",
+					TLS13: "on",
+				},
+			},
+			CustomMetadata: &CustomMetadata{
+				"a_random_field": "updated field value",
+			},
+		},
+		Response: Response{Success: true, Errors: []ResponseInfo{}, Messages: []ResponseInfo{}},
+	}
+
+	if assert.NoError(t, err) {
+		assert.Equal(t, want, response)
+	}
+}
+
+func TestCustomHostname_UpdateCustomHostnameWithEmptyCustomMetadata(t *testing.T) {
+	setup()
+	defer teardown()
+
+	mux.HandleFunc("/zones/foo/custom_hostnames/0d89c70d-ad9f-4843-b99f-6cc0252067e9", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPatch, r.Method, "Expected method 'PATCH', got %s", r.Method)
+
+		defer r.Body.Close()
+		reqBody, err := io.ReadAll(r.Body)
+		assert.NoError(t, err, "Reading request body")
+		assert.JSONEq(t, `
+{
+	"hostname": "app.example.com",
+	"custom_origin_server": "example.app.com",
+	"ssl": {
+		"method": "cname",
+		"type": "dv",
+		"wildcard": false,
+		"settings": {}
+	},
+	"custom_metadata": {},
+	"ownership_verification": {},
+	"ownership_verification_http": {}
+}`, string(reqBody), "Unexpected request body")
+
+		w.Header().Set("content-type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		fmt.Fprintf(w, `
+{
+	"success": true,
+	"errors": [],
+	"messages": [],
+	"result": {
+		"id": "0d89c70d-ad9f-4843-b99f-6cc0252067e9",
+		"hostname": "app.example.com",
+		"custom_origin_server": "example.app.com",
+		"ssl": {
+			"status": "pending_validation",
+			"method": "cname",
+			"type": "dv",
+			"cname_target": "dcv.digicert.com",
+			"cname": "810b7d5f01154524b961ba0cd578acc2.app.example.com",
+			"settings": {
+				"http2": "off",
+				"tls_1_3": "on"
+			}
+		},
+		"custom_metadata": {}
+	}
+}`)
+	})
+
+	wildcard := false
+	response, err := client.UpdateCustomHostname(context.Background(), "foo", "0d89c70d-ad9f-4843-b99f-6cc0252067e9", CustomHostname{Hostname: "app.example.com", CustomOriginServer: "example.app.com", SSL: &CustomHostnameSSL{Method: "cname", Type: "dv", Wildcard: &wildcard}, CustomMetadata: &CustomMetadata{}})
+
+	want := &CustomHostnameResponse{
+		Result: CustomHostname{
+			ID:                 "0d89c70d-ad9f-4843-b99f-6cc0252067e9",
+			Hostname:           "app.example.com",
+			CustomOriginServer: "example.app.com",
+			SSL: &CustomHostnameSSL{
+				Type:   "dv",
+				Method: "cname",
+				Status: "pending_validation",
+				SSLValidationRecord: SSLValidationRecord{
+					CnameTarget: "dcv.digicert.com",
+					CnameName:   "810b7d5f01154524b961ba0cd578acc2.app.example.com",
+				},
+				Settings: CustomHostnameSSLSettings{
+					HTTP2: "off",
+					TLS13: "on",
+				},
+			},
+			CustomMetadata: &CustomMetadata{},
 		},
 		Response: Response{Success: true, Errors: []ResponseInfo{}, Messages: []ResponseInfo{}},
 	}
